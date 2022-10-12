@@ -11,6 +11,12 @@ chmod +x run.sh
 
 Ping some IP in the created tun range:
 
-```
+```shell
 ping -I tun0 192.168.0.2
+```
+
+Start TCP connection:
+
+```shell
+nc 192.168.0.2
 ```
