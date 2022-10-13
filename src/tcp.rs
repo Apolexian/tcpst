@@ -1,5 +1,3 @@
-use std::default;
-
 use crate::{Message, State};
 
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
