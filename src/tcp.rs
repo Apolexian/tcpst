@@ -1,4 +1,4 @@
-use crate::{Message, State};
+use crate::Message;
 
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum TcpState {
@@ -16,21 +16,15 @@ pub(crate) enum TcpState {
     Closed,
 }
 
-#[derive(Ord, PartialEq, PartialOrd, Eq, Default)]
-pub(crate) enum TcpMessage {
-    #[default]
-    Segment,
-    Abort,
-    Open,
-    ServerSyn,
-    ServerAck,
-    Recieve,
-    Close,
-    ServerRst,
-    SynRecieved,
-    Send,
-}
+pub trait TcpMessage: Message {}
 
-impl Message for TcpMessage {}
+#[derive(Default, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Segment {}
 
-impl State for TcpState {}
+#[derive(Default, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Abort {}
+
+impl Message for Segment {}
+impl Message for Abort {}
+impl TcpMessage for Segment {}
+impl TcpMessage for Abort {}
