@@ -1,4 +1,6 @@
-use crate::State;
+use std::default;
+
+use crate::{Message, State};
 
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum TcpState {
@@ -12,7 +14,25 @@ pub(crate) enum TcpState {
     Closing,
     LastAck,
     TimeWait,
-    #[default] Closed,
+    #[default]
+    Closed,
 }
+
+#[derive(Ord, PartialEq, PartialOrd, Eq, Default)]
+pub(crate) enum TcpMessage {
+    #[default]
+    Segment,
+    Abort,
+    Open,
+    ServerSyn,
+    ServerAck,
+    Recieve,
+    Close,
+    ServerRst,
+    SynRecieved,
+    Send,
+}
+
+impl Message for TcpMessage {}
 
 impl State for TcpState {}
