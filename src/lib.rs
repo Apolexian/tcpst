@@ -30,7 +30,7 @@ pub struct Sender<M: Message, A: Action> {
 impl<M, A> Sender<M, A>
 where
     M: Message,
-    A: Action + Action<Cont = A>,
+    A: Action,
 {
     pub fn new(dispatch: Box<dyn Fn(M)>) -> Self {
         Sender {
@@ -39,7 +39,7 @@ where
         }
     }
 
-    pub fn send(&self, message: M, action: A) -> A
+    pub fn send<S: Action + Action<Cont = S>>(&self, message: M, action: S) -> S
     where
         <A as Action>::Cont: Action,
     {
@@ -54,7 +54,7 @@ pub struct Send<M: Message, A: Action> {
 
 impl<M: Message, A> Action for Send<M, A>
 where
-    A: Action + Action<Cont = A>,
+    A: Action,
     <A as Action>::Dual: Action,
 {
     type Dual = Recv<M, A::Dual>;
@@ -67,7 +67,7 @@ where
     }
 
     fn get_cont(&self) -> Self::Cont {
-        <A::Cont as Action>::new()
+        A::new()
     }
 }
 
@@ -145,11 +145,13 @@ where
     type Cont = A;
 
     fn get_cont(&self) -> Self::Cont {
-        todo!()
+        A::new()
     }
 
     fn new() -> Self {
-        todo!()
+        Recv {
+            phantom: PhantomData::default(),
+        }
     }
 }
 
@@ -162,14 +164,14 @@ pub enum Branch<L: Action, R: Action> {
 mod tests {
     use crate::{
         tcp::{Abort, Segment},
-        Action, Offer, Recv, Send, Terminate,
+        Recv, Send, Sender, Terminate,
     };
 
     #[test]
     fn whatever() {
-        type Example = Offer<Send<Segment, Terminate>, Recv<Abort, Terminate>>;
-        type ExampleDual =
-            <Offer<Send<Segment, Terminate>, Recv<Abort, Terminate>> as Action>::Dual;
+        type Example = Send<Segment, Recv<Abort, Terminate>>;
+
+        let s: Sender<Segment, Example> = Sender::new(Box::new(|_| {}));
     }
 }
 
