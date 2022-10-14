@@ -1,4 +1,6 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+
+use std::marker::PhantomData;
 /// TODO:
 /// 1) Need some sort of way to represent a session type, i.e. encode the TCP state machine in types
 ///
@@ -11,51 +13,79 @@
 
 pub trait Message: PartialEq + Ord + Default {}
 
-pub trait Session {
-    fn get_dual(&self) -> Self;
+pub trait Action {
+    type Dual;
+}
+pub struct Send<M: Message, A: Action> {
+    phantom: PhantomData<(M, A)>,
 }
 
-pub struct Send<M: Message, S: Session> {
-    message: M,
-    progress: S,
+impl<M: Message, A> Action for Send<M, A>
+where
+    A: Action,
+    <A as Action>::Dual: Action,
+{
+    type Dual = Recv<M, A::Dual>;
 }
 
-impl<M: Message, S: Session> Session for Send<M, S> {
-    fn get_dual(&self) -> Self {
-        todo!()
-    }
+pub struct Offer<A: Action, O: Action> {
+    phantom: PhantomData<(A, O)>,
 }
 
-pub struct Recv<M: Message, S: Session> {
-    message: M,
-    progress: S,
-    dual: S,
+impl<A, O: Action> Action for Offer<A, O>
+where
+    A: Action,
+    <A as Action>::Dual: Action,
+    O: Action,
+    <O as Action>::Dual: Action,
+{
+    type Dual = Choose<A::Dual, O::Dual>;
 }
 
-pub struct End {}
-
-impl Session for End {
-    fn get_dual(&self) -> Self {
-        todo!()
-    }
+pub struct Choose<A: Action, O: Action> {
+    phantom: PhantomData<(A, O)>,
 }
 
-impl<M: Message, S: Session> Session for Recv<M, S> {
-    fn get_dual(&self) -> Self {
-        todo!()
-    }
+impl<A, O> Action for Choose<A, O>
+where
+    A: Action,
+    <A as Action>::Dual: Action,
+    O: Action,
+    <O as Action>::Dual: Action,
+{
+    type Dual = Offer<A::Dual, O::Dual>;
+}
+
+pub struct Recv<M: Message, A: Action> {
+    phantom: PhantomData<(M, A)>,
+}
+
+pub struct Terminate {}
+
+impl Action for Terminate {
+    type Dual = Terminate;
+}
+
+impl<M: Message, A> Action for Recv<M, A>
+where
+    A: Action,
+    <A as Action>::Dual: Action,
+{
+    type Dual = Send<M, A::Dual>;
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
         tcp::{Abort, Segment},
-        End, Recv, Send,
+        Action, Offer, Recv, Send, Terminate,
     };
 
     #[test]
     fn whatever() {
-        type TcpServer = Recv<Segment, Send<Abort, End>>;
+        type Example = Offer<Send<Segment, Terminate>, Recv<Abort, Terminate>>;
+        type ExampleDual =
+            <Offer<Send<Segment, Terminate>, Recv<Abort, Terminate>> as Action>::Dual;
     }
 }
 
