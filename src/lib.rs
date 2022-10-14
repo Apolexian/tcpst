@@ -15,6 +15,7 @@ pub trait Message: PartialEq + Ord + Default {}
 
 pub trait Action {
     type Dual;
+    type Cont;
 }
 pub struct Send<M: Message, A: Action> {
     phantom: PhantomData<(M, A)>,
@@ -26,6 +27,7 @@ where
     <A as Action>::Dual: Action,
 {
     type Dual = Recv<M, A::Dual>;
+    type Cont = A;
 }
 
 pub struct Offer<A: Action, O: Action> {
@@ -40,6 +42,7 @@ where
     <O as Action>::Dual: Action,
 {
     type Dual = Choose<A::Dual, O::Dual>;
+    type Cont = A;
 }
 
 pub struct Choose<A: Action, O: Action> {
@@ -54,6 +57,7 @@ where
     <O as Action>::Dual: Action,
 {
     type Dual = Offer<A::Dual, O::Dual>;
+    type Cont = A;
 }
 
 pub struct Recv<M: Message, A: Action> {
@@ -64,6 +68,7 @@ pub struct Terminate {}
 
 impl Action for Terminate {
     type Dual = Terminate;
+    type Cont = Terminate;
 }
 
 impl<M: Message, A> Action for Recv<M, A>
@@ -72,6 +77,7 @@ where
     <A as Action>::Dual: Action,
 {
     type Dual = Send<M, A::Dual>;
+    type Cont = A;
 }
 
 #[cfg(test)]
