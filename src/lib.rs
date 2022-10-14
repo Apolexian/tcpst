@@ -80,6 +80,11 @@ where
     type Cont = A;
 }
 
+pub enum Branch<L: Action, R: Action> {
+    Left(L),
+    Right(R),
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
