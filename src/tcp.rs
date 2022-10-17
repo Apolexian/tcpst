@@ -16,7 +16,10 @@ pub(crate) enum TcpState {
     Closed,
 }
 
-pub trait TcpMessage: Message {}
+pub(crate) enum TcpMessage {
+    Segment(Segment),
+    Abort(Abort),
+}
 
 #[derive(Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Segment {}
@@ -26,5 +29,3 @@ pub struct Abort {}
 
 impl Message for Segment {}
 impl Message for Abort {}
-impl TcpMessage for Segment {}
-impl TcpMessage for Abort {}

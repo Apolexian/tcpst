@@ -22,34 +22,24 @@ pub trait Action {
     fn new() -> Self;
 }
 
-pub struct Sender<M: Message, A: Action> {
-    phantom: PhantomData<A>,
-    dispatch: Box<dyn Fn(M)>,
-}
-
-impl<M, A> Sender<M, A>
+pub struct Send<M, A>
 where
     M: Message,
     A: Action,
 {
-    pub fn new(dispatch: Box<dyn Fn(M)>) -> Self {
-        Sender {
-            phantom: PhantomData::default(),
-            dispatch,
-        }
-    }
-
-    pub fn send<S: Action + Action<Cont = S>>(&self, message: M, action: S) -> S
-    where
-        <A as Action>::Cont: Action,
-    {
-        (self.dispatch)(message);
-        action.get_cont()
-    }
+    phantom: PhantomData<(M, A)>,
 }
 
-pub struct Send<M: Message, A: Action> {
-    phantom: PhantomData<(M, A)>,
+impl<M: Message, A: Action> Send<M, A>
+where
+    <A as Action>::Dual: Action,
+{
+    fn send(&self, message: M, emitter: Option<Box<dyn Fn(M)>>) -> A {
+        if emitter.is_some() {
+            (emitter.unwrap())(message);
+        }
+        self.get_cont()
+    }
 }
 
 impl<M: Message, A> Action for Send<M, A>
@@ -162,16 +152,20 @@ pub enum Branch<L: Action, R: Action> {
 
 #[cfg(test)]
 mod tests {
+
     use crate::{
         tcp::{Abort, Segment},
-        Recv, Send, Sender, Terminate,
+        Action, Send, Terminate,
     };
 
     #[test]
     fn whatever() {
-        type Example = Send<Segment, Recv<Abort, Terminate>>;
-
-        let s: Sender<Segment, Example> = Sender::new(Box::new(|_| {}));
+        type Protocol = Send<Segment, Send<Abort, Terminate>>;
+        let send = Protocol::new();
+        let msg = Segment::default();
+        let continuation = send.send(msg, Some(Box::new(|_| print!("test"))));
+        let msg = Abort::default();
+        let _ = continuation.send(msg, Some(Box::new(|_| print!("test"))));
     }
 }
 
