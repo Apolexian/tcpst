@@ -34,10 +34,8 @@ impl<M: Message, A: Action> Send<M, A>
 where
     <A as Action>::Dual: Action,
 {
-    fn send(&self, message: M, emitter: Option<Box<dyn Fn(M)>>) -> A {
-        if emitter.is_some() {
-            (emitter.unwrap())(message);
-        }
+    fn emit(&self, message: M, emitter: Box<dyn Fn(M)>) -> A {
+        (emitter)(message);
         self.get_cont()
     }
 }
@@ -107,10 +105,6 @@ where
     }
 }
 
-pub struct Recv<M: Message, A: Action> {
-    phantom: PhantomData<(M, A)>,
-}
-
 pub struct Terminate {}
 
 impl Action for Terminate {
@@ -124,6 +118,10 @@ impl Action for Terminate {
     fn new() -> Self {
         todo!()
     }
+}
+
+pub struct Recv<M: Message, A: Action> {
+    phantom: PhantomData<(M, A)>,
 }
 
 impl<M: Message, A> Action for Recv<M, A>
@@ -145,6 +143,16 @@ where
     }
 }
 
+impl<M: Message, A: Action> Recv<M, A>
+where
+    <A as Action>::Dual: Action,
+{
+    fn emit(&self, message: M, emitter: Box<dyn Fn(M)>) -> A {
+        (emitter)(message);
+        self.get_cont()
+    }
+}
+
 pub enum Branch<L: Action, R: Action> {
     Left(L),
     Right(R),
@@ -155,17 +163,17 @@ mod tests {
 
     use crate::{
         tcp::{Abort, Segment},
-        Action, Send, Terminate,
+        Action, Recv, Send, Terminate,
     };
 
     #[test]
     fn whatever() {
-        type Protocol = Send<Segment, Send<Abort, Terminate>>;
-        let send = Protocol::new();
+        type Protocol = Send<Segment, Recv<Abort, Terminate>>;
+        let protocol = Protocol::new();
         let msg = Segment::default();
-        let continuation = send.send(msg, Some(Box::new(|_| print!("test"))));
+        let continuation = protocol.emit(msg, Box::new(|_| print!("test")));
         let msg = Abort::default();
-        let _ = continuation.send(msg, Some(Box::new(|_| print!("test"))));
+        let _ = continuation.emit(msg, Box::new(|_| print!("test")));
     }
 }
 
