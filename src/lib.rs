@@ -2,43 +2,40 @@ use std::marker::PhantomData;
 
 use either::Either;
 
-pub fn spawn<M, A: Action>() -> (Sender<M, A>, Reciever<M, A>) {
+pub fn spawn<M, A: Action>() -> (Sender<A>, Reciever<A>) {
     todo!()
 }
 
-pub struct Sender<M, A: Action> {
-    phantom: PhantomData<(M, A)>,
+pub struct Sender<A: Action> {
+    phantom: PhantomData<A>,
 }
 
-impl<M, A: Action> Sender<M, A> {
-    pub fn send(&self, message: M, send: A) {
+impl<A: Action> Sender<A> {
+    pub fn send<M>(&self, message: M, send: A) {
         todo!()
     }
 }
 
-pub struct Reciever<M, A: Action> {
-    phantom: PhantomData<(M, A)>,
+pub struct Reciever<A: Action> {
+    phantom: PhantomData<A>,
 }
 
-impl<M, A: Action> Reciever<M, A> {
-    pub fn recv(&self) -> (M, A) {
+impl<A: Action> Reciever<A> {
+    pub fn recv(&self) -> A {
         todo!()
     }
 }
+pub struct Channel<A: Action>(Sender<A>, Reciever<A>);
 
 pub trait Action {
     type Dual: Action<Dual = Self>;
-    fn new() -> (Self, Self::Dual)
-    where
-        Self: Sized;
 }
 pub struct Send<M, A>
 where
     A: Action,
     A::Dual: Action,
 {
-    phantom: PhantomData<A>,
-    channel: Sender<M, A::Dual>,
+    phantom: PhantomData<(M, A)>,
 }
 
 impl<M, A> Action for Send<M, A>
@@ -46,24 +43,6 @@ where
     A: Action,
 {
     type Dual = Recv<M, A::Dual>;
-
-    fn new() -> (Self, Self::Dual)
-    where
-        Self: Sized,
-    {
-        let (send, recv) = spawn::<M, A::Dual>();
-
-        (
-            Send {
-                phantom: PhantomData::default(),
-                channel: send,
-            },
-            Recv {
-                phantom: PhantomData::default(),
-                channel: recv,
-            },
-        )
-    }
 }
 
 impl<M, A: Action> Drop for Send<M, A> {
@@ -72,12 +51,17 @@ impl<M, A: Action> Drop for Send<M, A> {
     }
 }
 
+impl<M, A: Action> Channel<Send<M, A>> {
+    pub fn send(&self, message: M) -> Channel<A> {
+        todo!()
+    }
+}
+
 pub struct Recv<M, A>
 where
     A: Action,
 {
-    phantom: PhantomData<A>,
-    channel: Reciever<M, A>,
+    phantom: PhantomData<(M, A)>,
 }
 
 impl<'a, M, A> Action for Recv<M, A>
@@ -85,14 +69,6 @@ where
     A: Action,
 {
     type Dual = Send<M, A::Dual>;
-
-    fn new() -> (Self, Self::Dual)
-    where
-        Self: Sized,
-    {
-        let (there, here) = Self::Dual::new();
-        (here, there)
-    }
 }
 
 impl<M, A: Action> Drop for Recv<M, A> {
@@ -105,23 +81,6 @@ pub struct Terminate {}
 
 impl Action for Terminate {
     type Dual = Terminate;
-
-    fn new() -> (Self, Self::Dual)
-    where
-        Self: Sized,
-    {
-        (Terminate {}, Terminate {})
-    }
-}
-
-pub fn send<M, A: Action>(message: M, send: Send<M, A>) -> A {
-    let (this, that) = A::new();
-    send.channel.send(message, that);
-    this
-}
-
-pub fn recv<M, A: Action>(recv: Recv<M, A>) -> (M, A) {
-    recv.channel.recv()
 }
 
 pub struct Offer<A, O>
@@ -138,39 +97,11 @@ where
     O: Action,
 {
     type Dual = Choose<A::Dual, O::Dual>;
-
-    fn new() -> (Self, Self::Dual)
-    where
-        Self: Sized,
-    {
-        (
-            Offer {
-                phantom: PhantomData::default(),
-            },
-            Choose {
-                phantom: PhantomData::default(),
-            },
-        )
-    }
 }
 
 pub enum Branch {
     Left,
     Right,
-}
-
-impl<A: Action, O: Action> Offer<A, O> {
-    pub fn offer(
-        &self,
-        recv: Recv<Branch, Terminate>,
-    ) -> Either<(A, <A as Action>::Dual), (O, <O as Action>::Dual)> {
-        let choice = recv.channel.recv();
-        drop(choice.1);
-        match choice.0 {
-            Branch::Left => Either::Left(A::new()),
-            Branch::Right => Either::Right(O::new()),
-        }
-    }
 }
 
 pub struct Choose<A, O>
@@ -187,20 +118,6 @@ where
     O: Action,
 {
     type Dual = Offer<A::Dual, O::Dual>;
-
-    fn new() -> (Self, Self::Dual)
-    where
-        Self: Sized,
-    {
-        (
-            Choose {
-                phantom: PhantomData::default(),
-            },
-            Offer {
-                phantom: PhantomData::default(),
-            },
-        )
-    }
 }
 
 #[cfg(test)]
