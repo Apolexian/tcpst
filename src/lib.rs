@@ -2,16 +2,6 @@
 
 use std::marker::PhantomData;
 
-/// TODO:
-/// 1) Need some sort of way to represent a session type, i.e. encode the TCP state machine in types
-///
-/// 2) Need some way to decide if the path we are taking is acceptable by the session type
-///
-/// 3) Need to decide what happens if the path is not acceptable
-///
-/// 4) Need to decide how/what the communication between the client and server consists of
-///
-
 pub trait Message: PartialEq + Ord + Default {}
 
 pub trait Action {
@@ -67,18 +57,22 @@ impl<A, O: Action> Action for Offer<A, O>
 where
     A: Action,
     <A as Action>::Dual: Action,
+    <A as Action>::Cont: Action,
     O: Action,
     <O as Action>::Dual: Action,
+    <O as Action>::Cont: Action,
 {
     type Dual = Choose<A::Dual, O::Dual>;
-    type Cont = A;
+    type Cont = (A::Cont, O::Cont);
 
     fn get_cont(&self) -> Self::Cont {
-        todo!()
+        (<A::Cont as Action>::new(), <O::Cont as Action>::new())
     }
 
     fn new() -> Self {
-        todo!()
+        Offer {
+            phantom: PhantomData::default(),
+        }
     }
 }
 
@@ -90,18 +84,22 @@ impl<A, O> Action for Choose<A, O>
 where
     A: Action,
     <A as Action>::Dual: Action,
+    <A as Action>::Cont: Action,
     O: Action,
     <O as Action>::Dual: Action,
+    <O as Action>::Cont: Action,
 {
     type Dual = Offer<A::Dual, O::Dual>;
-    type Cont = A;
+    type Cont = (A::Cont, O::Cont);
 
     fn get_cont(&self) -> Self::Cont {
-        todo!()
+        (<A::Cont as Action>::new(), <O::Cont as Action>::new())
     }
 
     fn new() -> Self {
-        todo!()
+        Choose {
+            phantom: PhantomData::default(),
+        }
     }
 }
 
@@ -147,15 +145,10 @@ impl<M: Message, A: Action> Recv<M, A>
 where
     <A as Action>::Dual: Action,
 {
-    fn emit(&self, message: M, emitter: Box<dyn Fn(M)>) -> A {
-        (emitter)(message);
-        self.get_cont()
+    fn emit<T: Sized>(&self, message: M, emitter: Box<dyn Fn(M) -> T>) -> (T, A) {
+        let val = (emitter)(message);
+        (val, self.get_cont())
     }
-}
-
-pub enum Branch<L: Action, R: Action> {
-    Left(L),
-    Right(R),
 }
 
 #[cfg(test)]
@@ -171,9 +164,31 @@ mod tests {
         type Protocol = Send<Segment, Recv<Abort, Terminate>>;
         let protocol = Protocol::new();
         let msg = Segment::default();
-        let continuation = protocol.emit(msg, Box::new(|_| print!("test")));
+        let continuation = protocol.emit(msg, Box::new(|_| return));
         let msg = Abort::default();
-        let _ = continuation.emit(msg, Box::new(|_| print!("test")));
+        let (val, _) = continuation.emit(msg, Box::new(|_| return 10_u16));
+        println!("{:?}", val);
+
+        // Offer
+        // We would like something like Recv<Segment, Offer<(Label, Action), (Label, Action), ...>>
+        // So using it would be something like
+        //
+        //    // server
+        //    prot = protocol::new()
+        //    cont = prot.emit()
+        //    cont = cont.offer([(Label, Action)]);
+        //    ...
+        //
+        //    // client
+        //    client = protocol::Dual::new()
+        //    cont = client.emit()
+        //    cont = client.choose(Label)
+        //    ...
+        //
+        //    .offer and .choose would basically have the internals of .recv/.send the label
+        //    the server then matches on this and returns the expected continuation
+        //    the client should already know what it thinks the continuation should be
+        //    Problems: No variadic generics so how can I parametrise Offer<..(L, A)> ?
     }
 }
 
