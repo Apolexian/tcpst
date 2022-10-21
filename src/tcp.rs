@@ -1,5 +1,3 @@
-use crate::Message;
-
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum TcpState {
     Listen,
@@ -26,6 +24,3 @@ pub struct Segment {}
 
 #[derive(Default, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Abort {}
-
-impl Message for Segment {}
-impl Message for Abort {}

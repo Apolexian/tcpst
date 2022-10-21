@@ -1,105 +1,103 @@
-#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
-
 use std::marker::PhantomData;
 
-pub trait Message: PartialEq + Ord + Default {}
+use either::Either;
 
-pub trait Action {
-    type Dual;
-    type Cont;
-
-    fn get_cont(&self) -> Self::Cont;
-    fn new() -> Self;
+pub fn spawn<M, A: Action>() -> (Sender<M, A>, Reciever<M, A>) {
+    todo!()
 }
 
-pub struct Send<M, A>
-where
-    M: Message,
-    A: Action,
-{
+pub struct Sender<M, A: Action> {
     phantom: PhantomData<(M, A)>,
 }
 
-impl<M: Message, A: Action> Send<M, A>
-where
-    <A as Action>::Dual: Action,
-{
-    fn emit(&self, message: M, emitter: Box<dyn Fn(M)>) -> A {
-        (emitter)(message);
-        self.get_cont()
+impl<M, A: Action> Sender<M, A> {
+    pub fn send(&self, message: M, send: A) {
+        todo!()
     }
 }
 
-impl<M: Message, A> Action for Send<M, A>
+pub struct Reciever<M, A: Action> {
+    phantom: PhantomData<(M, A)>,
+}
+
+impl<M, A: Action> Reciever<M, A> {
+    pub fn recv(&self) -> (M, A) {
+        todo!()
+    }
+}
+
+pub trait Action {
+    type Dual: Action<Dual = Self>;
+    fn new() -> (Self, Self::Dual)
+    where
+        Self: Sized;
+}
+pub struct Send<M, A>
 where
     A: Action,
-    <A as Action>::Dual: Action,
+    A::Dual: Action,
+{
+    phantom: PhantomData<A>,
+    channel: Sender<M, A::Dual>,
+}
+
+impl<M, A> Action for Send<M, A>
+where
+    A: Action,
 {
     type Dual = Recv<M, A::Dual>;
-    type Cont = A;
 
-    fn new() -> Self {
-        Send {
-            phantom: PhantomData::default(),
-        }
-    }
+    fn new() -> (Self, Self::Dual)
+    where
+        Self: Sized,
+    {
+        let (send, recv) = spawn::<M, A::Dual>();
 
-    fn get_cont(&self) -> Self::Cont {
-        A::new()
+        (
+            Send {
+                phantom: PhantomData::default(),
+                channel: send,
+            },
+            Recv {
+                phantom: PhantomData::default(),
+                channel: recv,
+            },
+        )
     }
 }
 
-pub struct Offer<A: Action, O: Action> {
-    phantom: PhantomData<(A, O)>,
+impl<M, A: Action> Drop for Send<M, A> {
+    fn drop(&mut self) {
+        std::mem::drop(self)
+    }
 }
 
-impl<A, O: Action> Action for Offer<A, O>
+pub struct Recv<M, A>
 where
     A: Action,
-    <A as Action>::Dual: Action,
-    <A as Action>::Cont: Action,
-    O: Action,
-    <O as Action>::Dual: Action,
-    <O as Action>::Cont: Action,
 {
-    type Dual = Choose<A::Dual, O::Dual>;
-    type Cont = (A::Cont, O::Cont);
-
-    fn get_cont(&self) -> Self::Cont {
-        (<A::Cont as Action>::new(), <O::Cont as Action>::new())
-    }
-
-    fn new() -> Self {
-        Offer {
-            phantom: PhantomData::default(),
-        }
-    }
+    phantom: PhantomData<A>,
+    channel: Reciever<M, A>,
 }
 
-pub struct Choose<A: Action, O: Action> {
-    phantom: PhantomData<(A, O)>,
-}
-
-impl<A, O> Action for Choose<A, O>
+impl<'a, M, A> Action for Recv<M, A>
 where
     A: Action,
-    <A as Action>::Dual: Action,
-    <A as Action>::Cont: Action,
-    O: Action,
-    <O as Action>::Dual: Action,
-    <O as Action>::Cont: Action,
 {
-    type Dual = Offer<A::Dual, O::Dual>;
-    type Cont = (A::Cont, O::Cont);
+    type Dual = Send<M, A::Dual>;
 
-    fn get_cont(&self) -> Self::Cont {
-        (<A::Cont as Action>::new(), <O::Cont as Action>::new())
+    fn new() -> (Self, Self::Dual)
+    where
+        Self: Sized,
+    {
+        let (there, here) = Self::Dual::new();
+        (here, there)
     }
+}
 
-    fn new() -> Self {
-        Choose {
-            phantom: PhantomData::default(),
-        }
+impl<M, A: Action> Drop for Recv<M, A> {
+    fn drop(&mut self) {
+        std::mem::drop(self)
     }
 }
 
@@ -107,89 +105,108 @@ pub struct Terminate {}
 
 impl Action for Terminate {
     type Dual = Terminate;
-    type Cont = Terminate;
 
-    fn get_cont(&self) -> Self::Cont {
-        todo!()
-    }
-
-    fn new() -> Self {
-        todo!()
+    fn new() -> (Self, Self::Dual)
+    where
+        Self: Sized,
+    {
+        (Terminate {}, Terminate {})
     }
 }
 
-pub struct Recv<M: Message, A: Action> {
-    phantom: PhantomData<(M, A)>,
+pub fn send<M, A: Action>(message: M, send: Send<M, A>) -> A {
+    let (this, that) = A::new();
+    send.channel.send(message, that);
+    this
 }
 
-impl<M: Message, A> Action for Recv<M, A>
+pub fn recv<M, A: Action>(recv: Recv<M, A>) -> (M, A) {
+    recv.channel.recv()
+}
+
+pub struct Offer<L, A, O>
 where
     A: Action,
-    <A as Action>::Dual: Action,
+    O: Action,
 {
-    type Dual = Send<M, A::Dual>;
-    type Cont = A;
+    phantom: PhantomData<(L, A, O)>,
+}
 
-    fn get_cont(&self) -> Self::Cont {
-        A::new()
-    }
+impl<L, A, O> Action for Offer<L, A, O>
+where
+    A: Action,
+    O: Action,
+{
+    type Dual = Choose<L, A::Dual, O::Dual>;
 
-    fn new() -> Self {
-        Recv {
-            phantom: PhantomData::default(),
-        }
+    fn new() -> (Self, Self::Dual)
+    where
+        Self: Sized,
+    {
+        (
+            Offer {
+                phantom: PhantomData::default(),
+            },
+            Choose {
+                phantom: PhantomData::default(),
+            },
+        )
     }
 }
 
-impl<M: Message, A: Action> Recv<M, A>
+pub enum Branch {
+    Left,
+    Right,
+}
+
+pub fn offer<A: Action, O: Action>(
+    choice: Branch,
+) -> Either<(A, <A as Action>::Dual), (O, <O as Action>::Dual)> {
+    match choice {
+        Branch::Left => Either::Left(A::new()),
+        Branch::Right => Either::Right(O::new()),
+    }
+}
+
+pub struct Choose<L, A, O>
 where
-    <A as Action>::Dual: Action,
+    A: Action,
+    O: Action,
 {
-    fn emit<T: Sized>(&self, message: M, emitter: Box<dyn Fn(M) -> T>) -> (T, A) {
-        let val = (emitter)(message);
-        (val, self.get_cont())
+    phantom: PhantomData<(L, A, O)>,
+}
+
+impl<L, A, O> Action for Choose<L, A, O>
+where
+    A: Action,
+    O: Action,
+{
+    type Dual = Offer<L, A::Dual, O::Dual>;
+
+    fn new() -> (Self, Self::Dual)
+    where
+        Self: Sized,
+    {
+        (
+            Choose {
+                phantom: PhantomData::default(),
+            },
+            Offer {
+                phantom: PhantomData::default(),
+            },
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use crate::{
         tcp::{Abort, Segment},
-        Action, Recv, Send, Terminate,
+        Action, Offer, Recv, Send, Terminate,
     };
 
     #[test]
-    fn whatever() {
-        type Protocol = Send<Segment, Recv<Abort, Terminate>>;
-        let protocol = Protocol::new();
-        let msg = Segment::default();
-        let continuation = protocol.emit(msg, Box::new(|_| return));
-        let msg = Abort::default();
-        let (val, _) = continuation.emit(msg, Box::new(|_| return 10_u16));
-        println!("{:?}", val);
-
-        // Offer
-        // We would like something like Recv<Segment, Offer<(Label, Action), (Label, Action), ...>>
-        // So using it would be something like
-        //
-        //    // server
-        //    prot = protocol::new()
-        //    cont = prot.emit()
-        //    cont = cont.offer([(Label, Action)]);
-        //    ...
-        //
-        //    // client
-        //    client = protocol::Dual::new()
-        //    cont = client.emit()
-        //    cont = client.choose(Label)
-        //    ...
-        //
-        //    .offer and .choose would basically have the internals of .recv/.send the label
-        //    the server then matches on this and returns the expected continuation
-        //    the client should already know what it thinks the continuation should be
-        //    Problems: No variadic generics so how can I parametrise Offer<..(L, A)> ?
-    }
+    fn whatever() {}
 }
 
 mod proto;
