@@ -124,20 +124,20 @@ pub fn recv<M, A: Action>(recv: Recv<M, A>) -> (M, A) {
     recv.channel.recv()
 }
 
-pub struct Offer<L, A, O>
+pub struct Offer<A, O>
 where
     A: Action,
     O: Action,
 {
-    phantom: PhantomData<(L, A, O)>,
+    phantom: PhantomData<(A, O)>,
 }
 
-impl<L, A, O> Action for Offer<L, A, O>
+impl<A, O> Action for Offer<A, O>
 where
     A: Action,
     O: Action,
 {
-    type Dual = Choose<L, A::Dual, O::Dual>;
+    type Dual = Choose<A::Dual, O::Dual>;
 
     fn new() -> (Self, Self::Dual)
     where
@@ -159,29 +159,34 @@ pub enum Branch {
     Right,
 }
 
-pub fn offer<A: Action, O: Action>(
-    choice: Branch,
-) -> Either<(A, <A as Action>::Dual), (O, <O as Action>::Dual)> {
-    match choice {
-        Branch::Left => Either::Left(A::new()),
-        Branch::Right => Either::Right(O::new()),
+impl<A: Action, O: Action> Offer<A, O> {
+    pub fn offer(
+        &self,
+        recv: Recv<Branch, Terminate>,
+    ) -> Either<(A, <A as Action>::Dual), (O, <O as Action>::Dual)> {
+        let choice = recv.channel.recv();
+        drop(choice.1);
+        match choice.0 {
+            Branch::Left => Either::Left(A::new()),
+            Branch::Right => Either::Right(O::new()),
+        }
     }
 }
 
-pub struct Choose<L, A, O>
+pub struct Choose<A, O>
 where
     A: Action,
     O: Action,
 {
-    phantom: PhantomData<(L, A, O)>,
+    phantom: PhantomData<(A, O)>,
 }
 
-impl<L, A, O> Action for Choose<L, A, O>
+impl<A, O> Action for Choose<A, O>
 where
     A: Action,
     O: Action,
 {
-    type Dual = Offer<L, A::Dual, O::Dual>;
+    type Dual = Offer<A::Dual, O::Dual>;
 
     fn new() -> (Self, Self::Dual)
     where
