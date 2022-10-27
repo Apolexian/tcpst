@@ -96,12 +96,7 @@ impl Action for Terminate {
 
 impl<M> Channel<Terminate, M> {
     pub fn close(self) {
-        let pin = ManuallyDrop::new(self);
-        let sender = unsafe { ptr::read(&(pin).sender as *const _) };
-        let receiver = unsafe { ptr::read(&(pin).receiver as *const _) };
-
-        drop(sender);
-        drop(receiver);
+        drop(self);
     }
 }
 
