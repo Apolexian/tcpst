@@ -212,7 +212,7 @@ mod tests {
         let (r1, s1) = unbounded();
         let (r2, s2) = unbounded();
 
-        (|| {
+        {
             thread::spawn(|| {
                 let channel_client: Channel<Dual, u16> = Channel::new(Box::new(r2), Box::new(s1));
                 let cont = channel_client.send(10);
@@ -221,8 +221,8 @@ mod tests {
                 println!("sent");
                 cont.close();
             })
-        })();
-        (|| {
+        };
+        {
             thread::spawn(|| {
                 let channel_server: Channel<Protocol, u16> =
                     Channel::new(Box::new(r1), Box::new(s2));
@@ -234,7 +234,7 @@ mod tests {
             })
             .join()
             .unwrap();
-        })();
+        };
     }
 }
 
