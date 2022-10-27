@@ -1,46 +1,28 @@
-use std::{marker::PhantomData, mem, ptr};
+use std::{marker::PhantomData, mem::ManuallyDrop, ptr};
 
 use either::Either;
 
-struct Sender<A: Action, M> {
-    phantom: PhantomData<A>,
-    emitter: Box<dyn Fn(M)>,
+pub trait SendEndpoint<M>: std::marker::Send {
+    fn send(&self, message: M);
 }
 
-impl<A: Action, M> Sender<A, M> {
-    pub fn send(&self, message: M) {
-        (self.emitter)(message);
-    }
-}
-
-struct Reciever<A: Action, M> {
-    phantom: PhantomData<A>,
-    emitter: Box<dyn Fn() -> M>,
-}
-
-impl<A: Action, M> Reciever<A, M> {
-    pub fn recv(&self) -> M {
-        (self.emitter)()
-    }
+pub trait RecvEndpoint<M>: std::marker::Send {
+    fn recv(&self) -> M;
 }
 
 struct Channel<A: Action, M> {
-    sender: Sender<A, M>,
-    reciever: Reciever<A::Dual, M>,
+    sender: Box<dyn SendEndpoint<M>>,
+    receiver: Box<dyn RecvEndpoint<M>>,
+    phantom: PhantomData<A>,
 }
 
 impl<A: Action, M> Channel<A, M> {
     #[must_use]
-    pub fn new(send_emitter: Box<dyn Fn(M)>, recv_emitter: Box<dyn Fn() -> M>) -> Self {
+    pub fn new(sender: Box<dyn SendEndpoint<M>>, receiver: Box<dyn RecvEndpoint<M>>) -> Self {
         Channel {
-            sender: Sender {
-                phantom: PhantomData::default(),
-                emitter: send_emitter,
-            },
-            reciever: Reciever {
-                phantom: PhantomData::default(),
-                emitter: recv_emitter,
-            },
+            sender,
+            receiver,
+            phantom: PhantomData,
         }
     }
 }
@@ -63,26 +45,16 @@ where
     type Dual = Recv<M, A::Dual>;
 }
 
-impl<M, A: Action> Drop for Send<M, A> {
-    fn drop(&mut self) {
-        std::mem::drop(self)
-    }
-}
-
 impl<M, A: Action> Channel<Send<M, A>, M> {
     #[must_use]
-    pub fn send(&self, message: M) -> Channel<A, M> {
+    pub fn send(self, message: M) -> Channel<A, M> {
         self.sender.send(message);
+        let pin = ManuallyDrop::new(self);
         unsafe {
             Channel {
-                sender: Sender {
-                    phantom: PhantomData::default(),
-                    emitter: ptr::read(&(self).sender.emitter as *const _),
-                },
-                reciever: Reciever {
-                    phantom: PhantomData::default(),
-                    emitter: ptr::read(&(self).reciever.emitter as *const _),
-                },
+                sender: ptr::read(&(pin).sender as *const _),
+                receiver: ptr::read(&(pin).receiver as *const _),
+                phantom: PhantomData,
             }
         }
     }
@@ -102,25 +74,15 @@ where
     type Dual = Send<M, A::Dual>;
 }
 
-impl<M, A: Action> Drop for Recv<M, A> {
-    fn drop(&mut self) {
-        std::mem::drop(self)
-    }
-}
-
 impl<M, A: Action> Channel<Recv<M, A>, M> {
     #[must_use]
-    pub fn recv(&self) -> (M, Channel<A, M>) {
-        ((self.reciever.emitter)(), unsafe {
+    pub fn recv(self) -> (M, Channel<A, M>) {
+        let pin = ManuallyDrop::new(self);
+        (pin.receiver.recv(), unsafe {
             Channel {
-                sender: Sender {
-                    phantom: PhantomData::default(),
-                    emitter: ptr::read(&(self).sender.emitter as *const _),
-                },
-                reciever: Reciever {
-                    phantom: PhantomData::default(),
-                    emitter: ptr::read(&(self).reciever.emitter as *const _),
-                },
+                sender: ptr::read(&(pin).sender as *const _),
+                receiver: ptr::read(&(pin).receiver as *const _),
+                phantom: PhantomData,
             }
         })
     }
@@ -133,8 +95,13 @@ impl Action for Terminate {
 }
 
 impl<M> Channel<Terminate, M> {
-    pub fn close(&self) {
-        mem::drop(self);
+    pub fn close(self) {
+        let pin = ManuallyDrop::new(self);
+        let sender = unsafe { ptr::read(&(pin).sender as *const _) };
+        let receiver = unsafe { ptr::read(&(pin).receiver as *const _) };
+
+        drop(sender);
+        drop(receiver);
     }
 }
 
@@ -187,14 +154,15 @@ impl<A: Action, O: Action, M, T> Channel<Choice<M, A, O>, T> {
         let message = message_emitter();
         let choice = caster(message);
         unsafe {
+            let pin = ManuallyDrop::new(self);
             match choice {
                 Branch::Left => Either::Left(Channel::new(
-                    ptr::read(&(self).sender.emitter as *const _),
-                    ptr::read(&(self).reciever.emitter as *const _),
+                    ptr::read(&(pin).sender),
+                    ptr::read(&(pin).receiver),
                 )),
                 Branch::Right => Either::Right(Channel::new(
-                    ptr::read(&(self).sender.emitter as *const _),
-                    ptr::read(&(self).reciever.emitter as *const _),
+                    ptr::read(&(pin).sender),
+                    ptr::read(&(pin).receiver),
                 )),
             }
         }
@@ -202,14 +170,15 @@ impl<A: Action, O: Action, M, T> Channel<Choice<M, A, O>, T> {
 
     pub fn choose(&self, choice: Branch) -> Either<Channel<A, T>, Channel<O, T>> {
         unsafe {
+            let pin = ManuallyDrop::new(self);
             match choice {
                 Branch::Left => Either::Left(Channel::new(
-                    ptr::read(&(self).sender.emitter as *const _),
-                    ptr::read(&(self).reciever.emitter as *const _),
+                    ptr::read(&(pin).sender),
+                    ptr::read(&(pin).receiver),
                 )),
                 Branch::Right => Either::Right(Channel::new(
-                    ptr::read(&(self).sender.emitter as *const _),
-                    ptr::read(&(self).reciever.emitter as *const _),
+                    ptr::read(&(pin).sender),
+                    ptr::read(&(pin).receiver),
                 )),
             }
         }
@@ -218,43 +187,54 @@ impl<A: Action, O: Action, M, T> Channel<Choice<M, A, O>, T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Branch, Channel, Choice, Send, Terminate};
+    use std::thread;
 
-    #[test]
-    fn whatever() {
-        type Protocol = Send<u16, Send<u16, Terminate>>;
+    use crossbeam_channel::{unbounded, Receiver, Sender};
 
-        let send_emitter = Box::new(|x: u16| eprintln!("{:?}", x));
-        let recv_emitter = Box::new(|| return 10_u16);
+    use crate::{Action, Channel, Recv, RecvEndpoint, SendEndpoint, Terminate};
 
-        let channel: Channel<Protocol, u16> = Channel::new(send_emitter, recv_emitter);
+    impl<M: std::marker::Send> SendEndpoint<M> for Sender<M> {
+        fn send(&self, message: M) {
+            self.send(message).unwrap();
+        }
+    }
 
-        let a = channel.send(10);
-        let b = a.send(10);
-        b.close();
+    impl<M: std::marker::Send> RecvEndpoint<M> for Receiver<M> {
+        fn recv(&self) -> M {
+            self.recv().unwrap()
+        }
     }
 
     #[test]
-    fn whatever2() {
-        type Protocol = Choice<bool, Send<u16, Terminate>, Terminate>;
-        let send_emitter = Box::new(|x: u16| eprintln!("{:?}", x));
-        let recv_emitter = Box::new(|| return 10_u16);
-        let picker = Box::new(|choice| match choice {
-            true => Branch::Left,
-            false => Branch::Right,
-        });
-        let message_emitter = Box::new(|| true);
-        let channel: Channel<Protocol, u16> = Channel::new(send_emitter, recv_emitter);
+    fn test_client_send_server_recv_terminate() {
+        type Protocol = Recv<u16, Recv<u16, Terminate>>;
+        type Dual = <Protocol as Action>::Dual;
+        let (r1, s1) = unbounded();
+        let (r2, s2) = unbounded();
 
-        match channel.offer(message_emitter, picker) {
-            either::Either::Left(s) => {
-                let cont = s.send(10);
+        (|| {
+            thread::spawn(|| {
+                let channel_client: Channel<Dual, u16> = Channel::new(Box::new(r2), Box::new(s1));
+                let cont = channel_client.send(10);
+                println!("sent");
+                let cont = cont.send(15);
+                println!("sent");
                 cont.close();
-            }
-            either::Either::Right(t) => {
-                t.close();
-            }
-        }
+            })
+        })();
+        (|| {
+            thread::spawn(|| {
+                let channel_server: Channel<Protocol, u16> =
+                    Channel::new(Box::new(r1), Box::new(s2));
+                let (val, cont) = channel_server.recv();
+                println!("{:?}", val);
+                let (val, cont) = cont.recv();
+                println!("{:?}", val);
+                cont.close();
+            })
+            .join()
+            .unwrap();
+        })();
     }
 }
 
