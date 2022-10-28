@@ -45,7 +45,7 @@ where
     type Dual = Recv<M, A::Dual>;
 }
 
-impl<M, A: Action> Channel<Send<M, A>, M> {
+impl<M, A: Action, T> Channel<Send<T, A>, M> {
     #[must_use]
     pub fn send(self, message: M) -> Channel<A, M> {
         self.sender.send(message);
@@ -74,7 +74,7 @@ where
     type Dual = Send<M, A::Dual>;
 }
 
-impl<M, A: Action> Channel<Recv<M, A>, M> {
+impl<M, A: Action, T> Channel<Recv<T, A>, M> {
     #[must_use]
     pub fn recv(self) -> (M, Channel<A, M>) {
         let pin = ManuallyDrop::new(self);
@@ -116,9 +116,9 @@ where
     type Dual = Choice<M, A::Dual, O::Dual>;
 }
 
-pub enum Branch {
-    Left,
-    Right,
+pub enum Branch<L, R> {
+    Left(L),
+    Right(R),
 }
 
 /// This construct is semi-problematic to deal with over the network.
@@ -126,8 +126,8 @@ pub enum Branch {
 /// When a client wishes to make a choice it sends an indication of which choice (a label to match on enums/ true-false)
 /// via a channel and the server recieves. Hence, we can just match on this and return an Either, which can also be matched on.
 /// Over the network we can't send this indication in a packet. We base our choice on the type of message sent via flags (or other enocded mechanisms).
-/// So, the `offer` function for a server will simply require a function that provides this message - `message_emitter`.
-/// We also need some function that casts this message to a left or right choice - `caster`.
+/// So, the `offer` function for a server will simply require a function that provides this message and casts it to a choice.
+/// If we want to skip nested branches then we can just pass a closure that picks the direction to choose.
 /// So effectively we would:
 ///
 /// 1) write a function that gets a packet and derives its type
@@ -141,41 +141,31 @@ pub enum Branch {
 /// Pass a choice left/right, get back an `Either` of these and then use the corresponding side, i.e. .left() or .right()
 impl<A: Action, O: Action, M, T> Channel<Choice<M, A, O>, T> {
     #[must_use]
-    pub fn offer(
-        &self,
-        message_emitter: Box<dyn Fn() -> M>,
-        caster: Box<dyn Fn(M) -> Branch>,
-    ) -> Either<Channel<A, T>, Channel<O, T>> {
-        let message = message_emitter();
-        let choice = caster(message);
+    pub fn offer(self, choice: Box<dyn Fn() -> bool>) -> Branch<Channel<A, T>, Channel<O, T>> {
+        let choice = choice();
         unsafe {
             let pin = ManuallyDrop::new(self);
-            match choice {
-                Branch::Left => Either::Left(Channel::new(
-                    ptr::read(&(pin).sender),
-                    ptr::read(&(pin).receiver),
-                )),
-                Branch::Right => Either::Right(Channel::new(
-                    ptr::read(&(pin).sender),
-                    ptr::read(&(pin).receiver),
-                )),
+            let sender = ptr::read(&(pin).sender);
+            let receiver = ptr::read(&(pin).receiver);
+            if choice {
+                Branch::Left(Channel::new(sender, receiver))
+            } else {
+                Branch::Right(Channel::new(sender, receiver))
             }
         }
     }
 
-    pub fn choose(&self, choice: Branch) -> Either<Channel<A, T>, Channel<O, T>> {
+    pub fn choose_left(self) -> Channel<A, T> {
         unsafe {
             let pin = ManuallyDrop::new(self);
-            match choice {
-                Branch::Left => Either::Left(Channel::new(
-                    ptr::read(&(pin).sender),
-                    ptr::read(&(pin).receiver),
-                )),
-                Branch::Right => Either::Right(Channel::new(
-                    ptr::read(&(pin).sender),
-                    ptr::read(&(pin).receiver),
-                )),
-            }
+            Channel::new(ptr::read(&(pin).sender), ptr::read(&(pin).receiver))
+        }
+    }
+
+    pub fn choose_right(self) -> Channel<O, T> {
+        unsafe {
+            let pin = ManuallyDrop::new(self);
+            Channel::new(ptr::read(&(pin).sender), ptr::read(&(pin).receiver))
         }
     }
 }
@@ -186,7 +176,9 @@ mod tests {
 
     use crossbeam_channel::{unbounded, Receiver, Sender};
 
-    use crate::{Action, Channel, Recv, RecvEndpoint, SendEndpoint, Terminate};
+    use crate::{
+        Action, Branch, Channel, Choice, Recv, RecvEndpoint, Send, SendEndpoint, Terminate,
+    };
 
     impl<M: std::marker::Send> SendEndpoint<M> for Sender<M> {
         fn send(&self, message: M) {
@@ -201,31 +193,125 @@ mod tests {
     }
 
     #[test]
-    fn test_client_send_server_recv_terminate() {
-        type Protocol = Recv<u16, Recv<u16, Terminate>>;
+    fn test_multiplication_server() {
+        type Protocol = Recv<u16, Recv<u16, Send<u16, Terminate>>>;
         type Dual = <Protocol as Action>::Dual;
-        let (r1, s1) = unbounded();
-        let (r2, s2) = unbounded();
+        let (s1, r1) = unbounded();
+        let (s2, r2) = unbounded();
 
         {
             thread::spawn(|| {
-                let channel_client: Channel<Dual, u16> = Channel::new(Box::new(r2), Box::new(s1));
-                let cont = channel_client.send(10);
-                println!("sent");
-                let cont = cont.send(15);
-                println!("sent");
+                let num1 = 10_u16;
+                let num2 = 2_u16;
+                let channel_client: Channel<Dual, u16> = Channel::new(Box::new(s2), Box::new(r1));
+                let cont = channel_client.send(num1);
+                let cont = cont.send(num2);
+                let (answer, cont) = cont.recv();
+                assert_eq!(num1 * num2, answer);
                 cont.close();
             })
         };
         {
             thread::spawn(|| {
                 let channel_server: Channel<Protocol, u16> =
-                    Channel::new(Box::new(r1), Box::new(s2));
-                let (val, cont) = channel_server.recv();
-                println!("{:?}", val);
-                let (val, cont) = cont.recv();
-                println!("{:?}", val);
+                    Channel::new(Box::new(s1), Box::new(r2));
+                let (val1, cont) = channel_server.recv();
+                let (val2, cont) = cont.recv();
+                let answer = val1 * val2;
+                let cont = cont.send(answer);
                 cont.close();
+            })
+            .join()
+            .unwrap();
+        };
+    }
+
+    #[test]
+    fn test_choice_simple() {
+        type Protocol = Choice<u16, Terminate, Terminate>;
+        type Dual = <Protocol as Action>::Dual;
+        let (s1, r1) = unbounded();
+        let (s2, r2) = unbounded();
+        {
+            thread::spawn(|| {
+                let channel_client: Channel<Dual, u16> = Channel::new(Box::new(s2), Box::new(r1));
+                let cont = channel_client.choose_right();
+                cont.close();
+            })
+        };
+
+        {
+            thread::spawn(|| {
+                let channel_server: Channel<Protocol, u16> =
+                    Channel::new(Box::new(s1), Box::new(r2));
+                let cont = channel_server.offer(Box::new(Box::new(|| false)));
+                match cont {
+                    Branch::Left(cont) => {
+                        cont.close();
+                    }
+                    Branch::Right(cont) => {
+                        cont.close();
+                    }
+                }
+            })
+            .join()
+            .unwrap();
+        };
+    }
+
+    #[test]
+    fn test_add_two_or_three_numbers() {
+        type Protocol = Choice<
+            bool,
+            Recv<u16, Recv<u16, Send<u16, Terminate>>>,
+            Recv<u16, Recv<u16, Recv<u16, Send<u16, Terminate>>>>,
+        >;
+        type Dual = <Protocol as Action>::Dual;
+        let (s1, r1) = unbounded();
+        let (s2, r2) = unbounded();
+
+        pub fn picker_right() -> bool {
+            false
+        }
+
+        {
+            thread::spawn(|| {
+                let num1 = 10_u16;
+                let num2 = 2_u16;
+                let num3 = 3_u16;
+                let channel_client: Channel<Dual, u16> = Channel::new(Box::new(s2), Box::new(r1));
+                let cont = channel_client.choose_right();
+                let cont = cont.send(num1);
+                let cont = cont.send(num2);
+                let cont = cont.send(num3);
+                let (answer, cont) = cont.recv();
+                assert_eq!(num1 + num2 + num3, answer);
+                cont.close();
+            })
+        };
+
+        {
+            thread::spawn(|| {
+                let channel_server: Channel<Protocol, u16> =
+                    Channel::new(Box::new(s1), Box::new(r2));
+                let cont = channel_server.offer(Box::new(picker_right));
+                match cont {
+                    Branch::Left(cont) => {
+                        let (val1, cont) = cont.recv();
+                        let (val2, cont) = cont.recv();
+                        let val = val1 + val2;
+                        let cont = cont.send(val);
+                        cont.close();
+                    }
+                    Branch::Right(cont) => {
+                        let (val1, cont) = cont.recv();
+                        let (val2, cont) = cont.recv();
+                        let (val3, cont) = cont.recv();
+                        let val = val1 + val2 + val3;
+                        let cont = cont.send(val);
+                        cont.close();
+                    }
+                }
             })
             .join()
             .unwrap();
