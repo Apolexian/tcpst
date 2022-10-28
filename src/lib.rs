@@ -128,17 +128,12 @@ pub enum Branch<L, R> {
 /// Over the network we can't send this indication in a packet. We base our choice on the type of message sent via flags (or other enocded mechanisms).
 /// So, the `offer` function for a server will simply require a function that provides this message and casts it to a choice.
 /// If we want to skip nested branches then we can just pass a closure that picks the direction to choose.
-/// So effectively we would:
-///
-/// 1) write a function that gets a packet and derives its type
-/// 2) write a function that casts that type to left or right
-/// 3) in the server code match on the return type
+/// So effectively we would write a function that gets a packet, casts that to a choice of either left (true) or right (false)
 ///
 /// On the client side we only really need to proceed as whatever we want, we synchronise this choice with the server by sending a packet
 /// with some message type. If the choice is not cast/derived correctly then we expect communication to desync and abort at the next stage (or later stages
 /// once we realise).
-/// So the client would just use the `choose` function as:
-/// Pass a choice left/right, get back an `Either` of these and then use the corresponding side, i.e. .left() or .right()
+/// So the client would just use the corresponding choose function `choose_left` or `choose_right`
 impl<A: Action, O: Action, M, T> Channel<Choice<M, A, O>, T> {
     #[must_use]
     pub fn offer(self, choice: Box<dyn Fn() -> bool>) -> Branch<Channel<A, T>, Channel<O, T>> {
