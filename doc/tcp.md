@@ -27,6 +27,10 @@ Notes:
 * `Async Communication`. Almost all parts of the data communication can happen asynchronously. Where a feature calls for explicit need for `Async` this will be noted.
 * Connection loss/other failure. At any point in the protocol something may happen (e.g. device catches on fire) and the communication fails. Where there is an explicit sequence of actions that cause a `Failure` this will also be noted.
 
+## The retransmission queue
+
+TODO.
+
 ## Sequence Numbers
 
 https://datatracker.ietf.org/doc/html/rfc9293#section-3.4
@@ -150,6 +154,7 @@ https://datatracker.ietf.org/doc/html/rfc9293#section-3.8
 | Sequence of urgent data of any length                                                   | Outside Consideration                                                         |
 | Inform the application layer asynchronously <br> whenever it receives an urgent pointer | ST-Primitives + Async                                                         |
 | Provide a way for the application to learn how <br> much urgent data remains to be read | ST-Primitives + Outside Consideration                                         |
+| Managing the window                                                                     | ST-Primitives + Outside Consideration                                         |
 
 Notes:
 
@@ -162,8 +167,6 @@ Notes:
 * Sequence of urgent data of any length. A TCP implementation MUST support a sequence of urgent data of any length (MUST-31). The urgent pointer MUST point to the sequence number of the octet following the urgent data (MUST-62).
 * Inform the application layer asynchronously. A TCP implementation MUST (MUST-32) inform the application layer asynchronously whenever it receives an urgent pointer and there was previously no pending urgent data, or whenever the urgent pointer advances in the data stream. 
 * How much data remains.The TCP implementation MUST (MUST-33) provide a way for the application to learn how much urgent data remains to be read from the connection, or at least to determine whether more urgent data remains to be read.
-
-## Managing the Window
 
 ## TCP Congestion Control
 
