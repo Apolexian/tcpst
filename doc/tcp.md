@@ -167,12 +167,36 @@ Notes:
 
 ## TCP Congestion Control
 
+Generally, congestion control algorithms involve *many* semantics that can be labeled as `Outside Consideration` and significatly increase the complexity of a TCP implementation.
+
+https://datatracker.ietf.org/doc/html/rfc9293#section-3.8.2
+https://datatracker.ietf.org/doc/html/rfc5681
+https://datatracker.ietf.org/doc/html/rfc3168
+https://datatracker.ietf.org/doc/html/rfc1122
+
+| Feature/Branch Case                                 | Model                                                  |
+| --------------------------------------------------- | ------------------------------------------------------ |
+| Slow start                                          | ST-Primitives + Outside Consideration + Relative-Timed |
+| Congestion avoidance                                | ST-Primitives + Outside Consideration + Relative-Timed |
+| Fast retransmit                                     | ST-Primitives + Outside Consideration                  |
+| Fast recovery                                       | ST-Primitives + Outside Consideration                  |
+| Restarting Idle Connections                         | Outside Consideration                                  |
+| Generating Acknowledgments                          | ST-Primitives + Relative-Timed + Outside Consideration |
+| Immediately acknowledge out of order segments       | Outside Consideration                                  |
+| Determine that all of the endpoints are ECN-capable | ST-Primitives                                          |
+| Inform the data sender of the received CE packet    | ST-Primitives                                          |
+
+Note:
+
+* Slow start and Congestion avoidance. These generally determine some value that is outside of the scope of the state machine but also depend on the retransmission timer which *could* be managed by the state machine. If the clock is outside then this is all just `Outside Consideration`.
+* Fast retransmit and Fast recovery. Both of these need to check for duplicate `ACK` but this just means we need to keep track of `ACK` received, not that some value is constrained by another, so its a `Outside Consideration`.
+
 ## Modeling tags
 
 | Tag                   | Note                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ST-Primitives         | Primitives session type operations. <br> I.e. `&, ⊕, ?, !, end`.                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Value Dependence      | The protocol depends on a specific value, e.g. the check for the incrementing of sequence numbers depends on the actual value. <br> This means we can either parse a packet, and do this check outside of the formal state machine or the formalism needs to be able to do value dependent typing. In the case where we lift this to an outside algorithm this becomes an `Outside Consideration`.                                                                               |
+| Value Dependence      | The protocol depends on a constraint on a value imposed by another specific value, e.g. the check for the incrementing of sequence numbers depends on the actual value. <br> This means we can either parse a packet, and do this check outside of the formal state machine or the formalism needs to be able to do value dependent typing. In the case where we lift this to an outside algorithm this becomes an `Outside Consideration`.                                      |
 | Failure               | Indicates that a an action was performed but failed. The modelling of this depends on what failure entails. This could be a timeout or some sort of explicit error from I/O.                                                                                                                                                                                                                                                                                                     |
 | Relative-Timed        | Explicit time bounds such as ones required by the `TIME-WAIT` state. Relative here simply signifies that the time is not absoolute from some start point, i.e. it is not that we have a communication that must happen in some number of time units. This can be lifted from the state machine and handled by some abstract clock. In this case this would become an `Outside Consideration` and the state machine would only need to be informed when it can perform an action. |
 | Unbounded recursion   | Unbounded recursion is when we can't predict the number of repetitions for a recursive function/action.                                                                                                                                                                                                                                                                                                                                                                          |
