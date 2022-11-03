@@ -24,7 +24,8 @@ Without these the communication will simply not work or not be fully modeled, he
 Notes:
 
 * `Unknown number of actions`. We cannot know ahead of time how many times a server will need to recieve a packet, or how many times a client will need to send one. To model this we need some recursive environment that may be unbounded.
-* `Async Communication`. Almost all parts of the data communication can happen asynchronously. Where a feature calls for explicit need for `Async` this will be noted.
+* `Async Communication`. Almost all parts of the data communication can happen asynchronously. Where a feature calls for explicit need for `Async` this will be noted. In particular:
+  *    We have implicitly assumed an asynchronous user interface in which a SEND later elicits some kind of SIGNAL or pseudo-interrupt from the serving TCP endpoint.  An alternative is to return a response immediately.  For instance, SENDs might return immediate local acknowledgment, even if the segment sent had not been acknowledged by the distant TCP endpoint.  We could optimistically assume eventual success.  If we are wrong, the connection will close anyway due to the timeout.  In implementations of this kind (synchronous), there will still be some asynchronous signals, but these will deal with the connection itself, and not with specific segments or buffers.
 * Connection loss/other failure. At any point in the protocol something may happen (e.g. device catches on fire) and the communication fails. Where there is an explicit sequence of actions that cause a `Failure` this will also be noted.
 
 ## The retransmission queue
@@ -40,6 +41,7 @@ https://datatracker.ietf.org/doc/html/rfc9293#section-3.4
 | Clock                                             | Outside Consideration                             |
 | Keeping quiet when <br>assigning sequence numbers | Relative-Timed + Outside Consideration            |
 | TCP Quiet Time Concept                            | ST-Primitives + Value Dependence + Relative-Timed |
+| Source Address Validation                         | Outside Consideration                             |
 
   Notes:
 
@@ -154,7 +156,9 @@ https://datatracker.ietf.org/doc/html/rfc9293#section-3.8
 | Sequence of urgent data of any length                                                   | Outside Consideration                                                         |
 | Inform the application layer asynchronously <br> whenever it receives an urgent pointer | ST-Primitives + Async                                                         |
 | Provide a way for the application to learn how <br> much urgent data remains to be read | ST-Primitives + Outside Consideration                                         |
-| Managing the window                                                                     | ST-Primitives + Outside Consideration                                         |
+| Zero-Window Probing                                                                     | ST-Primitives + Relative-Timed                                                |
+| Silly Window Syndrome Avoidance                                                         | ST-Primitives + Outside Consideration                                         |
+| Delayed Acknowledgments                                                                 | Async + Relative-Timed                                                        |
 
 Notes:
 
@@ -167,7 +171,9 @@ Notes:
 * Sequence of urgent data of any length. A TCP implementation MUST support a sequence of urgent data of any length (MUST-31). The urgent pointer MUST point to the sequence number of the octet following the urgent data (MUST-62).
 * Inform the application layer asynchronously. A TCP implementation MUST (MUST-32) inform the application layer asynchronously whenever it receives an urgent pointer and there was previously no pending urgent data, or whenever the urgent pointer advances in the data stream. 
 * How much data remains.The TCP implementation MUST (MUST-33) provide a way for the application to learn how much urgent data remains to be read from the connection, or at least to determine whether more urgent data remains to be read.
-
+* Probing of zero (offered) windows MUST be supported (MUST-36). A TCP implementation MAY keep its offered receive window closed indefinitely (MAY-8).  As long as the receiving TCP peer continues to send acknowledgments in response to the probe segments, the sending TCP peer MUST allow the connection to stay open (MUST-37). The transmitting host SHOULD send the first zero-window probe when a zero window has existed for the retransmission timeout period (SHLD-29) - `Relative-Timed`. And SHOULD increase exponentially the interval between successive probes - `Relative-Timed`.
+* A TCP implementation MUST include a SWS avoidance algorithm in the sender (MUST-38).
+ 
 ## TCP Congestion Control
 
 Generally, congestion control algorithms involve *many* semantics that can be labeled as `Outside Consideration` and significatly increase the complexity of a TCP implementation.
@@ -207,3 +213,9 @@ Note:
 | Async                 | Asynchronous communication, usually through some message buffer. Lifting this to `Outside Consideration` may be very tricky.                                                                                                                                                                                                                                                                                                                                                     |
 | Priority-Ordering     | We may wish some messages to have higher priority, so when these come in, and we have some messages left to buffer, we will put the priority ones on top. This tag only really makes sense with `Async` as otherwise we process packets synchronously anyway. This may be lifted entirely out of the state machine, in which case, the state machine will be completely oblivious to any urgency mechanisms and this will be an `Outside Consideration`.                         |
 | Outside Consideration | A feature that relies on an algorithm that is outside the consideration of the actual communication/state machine. For example, the algorithm for generating initial sequence numbers is precisely defined and required, however, this is outside the bounds of the communication protocol.                                                                                                                                                                                      |
+
+## On the retransmission queue
+
+Can't seem to find an explicit definition and the requirements for the retransmission queue.
+For now, assume that this is just some queue on which we push messaged to be retransmitted at some point.
+In this case this would be handled by `Async`.
