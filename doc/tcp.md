@@ -28,10 +28,6 @@ Notes:
   *    We have implicitly assumed an asynchronous user interface in which a SEND later elicits some kind of SIGNAL or pseudo-interrupt from the serving TCP endpoint.  An alternative is to return a response immediately.  For instance, SENDs might return immediate local acknowledgment, even if the segment sent had not been acknowledged by the distant TCP endpoint.  We could optimistically assume eventual success.  If we are wrong, the connection will close anyway due to the timeout.  In implementations of this kind (synchronous), there will still be some asynchronous signals, but these will deal with the connection itself, and not with specific segments or buffers.
 * Connection loss/other failure. At any point in the protocol something may happen (e.g. device catches on fire) and the communication fails. Where there is an explicit sequence of actions that cause a `Failure` this will also be noted.
 
-## The retransmission queue
-
-TODO.
-
 ## Sequence Numbers
 
 https://datatracker.ietf.org/doc/html/rfc9293#section-3.4
@@ -219,3 +215,66 @@ Note:
 Can't seem to find an explicit definition and the requirements for the retransmission queue.
 For now, assume that this is just some queue on which we push messaged to be retransmitted at some point.
 In this case this would be handled by `Async`.
+
+## One big table
+
+Just a collation of all the feature tables.
+
+| Feature/Branch Case                                                                                | Model                                                                         |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Unknown number of actions                                                                          | Unbounded recursion                                                           |
+| Async Communication                                                                                | Async                                                                         |
+| Connection loss/other failure                                                                      | Failure                                                                       |
+| Clock                                                                                              | Outside Consideration                                                         |
+| Keeping quiet when <br>assigning sequence numbers                                                  | Relative-Timed + Outside Consideration                                        |
+| TCP Quiet Time Concept                                                                             | ST-Primitives + Value Dependence + Relative-Timed                             |
+| Source Address Validation                                                                          | Outside Consideration                                                         |
+| Basic Three-Way Handshake <br>for Connection Synchronization                                       | ST-Primitives + Value Dependence                                              |
+| Simultaneous open attempts                                                                         | ST-Primitives + Value Dependence                                              |
+| Recovery from Old Duplicate SYN                                                                    | ST-Primitives + Value Dependence                                              |
+| Half-Open Connections                                                                              | ST-Primitives + Value Dependence                                              |
+| Old Duplicate SYN Initiates a Reset on Two Passive Sockets                                         | ST-Primitives + Value Dependence                                              |
+| Active Side Causes Half-Open Connection Discovery                                                  | ST-Primitives + Value Dependence                                              |
+| Connection does not exist                                                                          | ST-Primitives + Value Dependence                                              |
+| Connection is in any <br>non-synchronized state                                                    | ST-Primitives + Value Depenednce                                              |
+| Connection is in a synchronized state                                                              | ST-Primitives + Value Dependence                                              |
+| IP Security Compartment and Precedence                                                             | Value Dependence                                                              |
+| Reset segment validation                                                                           | ST-Primitives + Value Dependence                                              |
+| Recieve until told that <br>remote has closed                                                      | ST-Primitives + Failure                                                       |
+| Signal that remote peer has closed                                                                 | ST-Primitives                                                                 |
+| Reliably deliver all buffers sent <br> before connection was closed                                | ST-Primitives                                                                 |
+| Initiate close                                                                                     | ST-Primitives                                                                 |
+| Remote sends FIN control signal                                                                    | ST-Primitives + Failure                                                       |
+| Simultaneous close                                                                                 | ST-Primitives                                                                 |
+| Half-duplex close sequence                                                                         | ST-Primitives                                                                 |
+| Active close time lingering                                                                        | ST-Primitives + Relative-Timed + Value Dependence                             |
+| Timestamp Options                                                                                  | ST-Primitives + Value Dependence                                              |
+| Maximum Segment Size Option                                                                        | Outside Consideration                                                         |
+| Path MTU Discovery                                                                                 | Outside Consideration                                                         |
+| PMTUD for IPv4                                                                                     | Outside Consideration                                                         |
+| PMTUD for IPv6                                                                                     | Outside Consideration                                                         |
+| PLPMTUD                                                                                            | Outside Consideration                                                         |
+| Smallest effective MTU of the interface to calculate <br> the value to advertise in the MSS Option | Outside Consideration                                                         |
+| Nagle Algorithm                                                                                    | Value Dependence + Outside Consideration                                      |
+| IPv6 Jumbograms                                                                                    | Outside Consideration                                                         |
+| Retransmission Timeout                                                                             | ST-Primitives + Value Dependence + Relative-Timed + Outside Consideration     |
+| Same IPv4 Identification field <br> if retransmitted packet is identical                           | Value Dependence                                                              |
+| Excessive retransmissions of data segments                                                         | ST-Primitives + Multiplicities/Relative-Timed + Outside Consideration + Async |
+| Idling                                                                                             | Relative-Timed                                                                |
+| Keep-alives                                                                                        | ST-Primitives + Outside Consideration                                         |
+| Support for the urgent mechanism                                                                   | ST-Primitives + Outside Consideration/Priority-Ordering                       |
+| Sequence of urgent data of any length                                                              | Outside Consideration                                                         |
+| Inform the application layer asynchronously <br> whenever it receives an urgent pointer            | ST-Primitives + Async                                                         |
+| Provide a way for the application to learn how <br> much urgent data remains to be read            | ST-Primitives + Outside Consideration                                         |
+| Zero-Window Probing                                                                                | ST-Primitives + Relative-Timed                                                |
+| Silly Window Syndrome Avoidance                                                                    | ST-Primitives + Outside Consideration                                         |
+| Delayed Acknowledgments                                                                            | Async + Relative-Timed                                                        |
+| Slow start                                                                                         | ST-Primitives + Outside Consideration + Relative-Timed                        |
+| Congestion avoidance                                                                               | ST-Primitives + Outside Consideration + Relative-Timed                        |
+| Fast retransmit                                                                                    | ST-Primitives + Outside Consideration                                         |
+| Fast recovery                                                                                      | ST-Primitives + Outside Consideration                                         |
+| Restarting Idle Connections                                                                        | Outside Consideration                                                         |
+| Generating Acknowledgments                                                                         | ST-Primitives + Relative-Timed + Outside Consideration                        |
+| Immediately acknowledge out of order segments                                                      | Outside Consideration                                                         |
+| Determine that all of the endpoints are ECN-capable                                                | ST-Primitives                                                                 |
+| Inform the data sender of the received CE packet                                                   | ST-Primitives                                                                 |
