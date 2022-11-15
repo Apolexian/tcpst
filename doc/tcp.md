@@ -290,3 +290,7 @@ The transitions are labelled via the following actions:
 * `𝜏` - silent tranisition, i.e. an action that advances the state machine but is not visible to the other participant
 
 ![handshake_diagram](tcp_handshake.jpg)
+
+A state machine diagram for TCP with possible half close connections is below:
+
+![tcp_states](tcp_states.jpg)
