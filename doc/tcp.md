@@ -278,3 +278,15 @@ Just a collation of all the feature tables.
 | Immediately acknowledge out of order segments                                                      | Outside Consideration                                                         |
 | Determine that all of the endpoints are ECN-capable                                                | ST-Primitives                                                                 |
 | Inform the data sender of the received CE packet                                                   | ST-Primitives                                                                 |
+
+## State machine diagrams
+
+A state machine diagram for establishing a connection in TCP from the viewpoint of the server.
+
+The transitions are labelled via the following actions:
+
+* `!` - a message is sent to the other participant
+* `?` - a message is recieved from the other participant
+* `𝜏` - silent tranisition, i.e. an action that advances the state machine but is not visible to the other participant
+
+![handshake_diagram](tcp_handshake.jpg)
