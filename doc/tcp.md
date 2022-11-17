@@ -294,3 +294,23 @@ The transitions are labelled via the following actions:
 A state machine diagram for TCP with possible half close connections is below:
 
 ![tcp_states](tcp_states.jpg)
+
+## Data flow
+
+Approximate data flow between moment of packet ingestion and state tranisition:
+
+![data_flow_diagram](data_flow.jpg)
+
+## Interfaces
+
+Current implmenetation of STs has:
+
+* `send` that wraps a send function and fires a send tranisiton
+* `recv` that wraps a recv function and fires a recv tranisition
+* `offer` that needs a function that will at some point emit a choice
+* `choose` that just picks the choice it wants
+
+Hence, the dynamic verification layer will own objects that can interract with the SMST layer.
+The layer above SMST needs to know which tranisition it think should happen and comapre this with the tranistion in SMST.
+This layer also needs functions that can proivide the choice emition for `offer`.
+If SMST at any point can not accept the transition then it should halt as desynchronized and should probably abort.
