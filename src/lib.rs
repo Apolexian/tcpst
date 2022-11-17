@@ -100,7 +100,7 @@ impl<M> Channel<Terminate, M> {
     }
 }
 
-pub struct Choice<M, A, O>
+pub struct Offer<M, A, O>
 where
     A: Action,
     O: Action,
@@ -108,12 +108,12 @@ where
     phantom: PhantomData<(M, A, O)>,
 }
 
-impl<M, A, O> Action for Choice<M, A, O>
+impl<M, A, O> Action for Offer<M, A, O>
 where
     A: Action,
     O: Action,
 {
-    type Dual = Choice<M, A::Dual, O::Dual>;
+    type Dual = Choose<M, A::Dual, O::Dual>;
 }
 
 pub enum Branch<L, R> {
@@ -134,7 +134,7 @@ pub enum Branch<L, R> {
 /// with some message type. If the choice is not cast/derived correctly then we expect communication to desync and abort at the next stage (or later stages
 /// once we realise).
 /// So the client would just use the corresponding choose function `choose_left` or `choose_right`
-impl<A: Action, O: Action, M, T> Channel<Choice<M, A, O>, T> {
+impl<A: Action, O: Action, M, T> Channel<Offer<M, A, O>, T> {
     #[must_use]
     pub fn offer(self, choice: Box<dyn Fn() -> bool>) -> Branch<Channel<A, T>, Channel<O, T>> {
         let choice = choice();
@@ -149,7 +149,25 @@ impl<A: Action, O: Action, M, T> Channel<Choice<M, A, O>, T> {
             }
         }
     }
+}
 
+pub struct Choose<M, A, O>
+where
+    A: Action,
+    O: Action,
+{
+    phantom: PhantomData<(M, A, O)>,
+}
+
+impl<M, A, O> Action for Choose<M, A, O>
+where
+    A: Action,
+    O: Action,
+{
+    type Dual = Offer<M, A::Dual, O::Dual>;
+}
+
+impl<A: Action, O: Action, M, T> Channel<Choose<M, A, O>, T> {
     pub fn choose_left(self) -> Channel<A, T> {
         unsafe {
             let pin = ManuallyDrop::new(self);
@@ -172,7 +190,7 @@ mod tests {
     use crossbeam_channel::{unbounded, Receiver, Sender};
 
     use crate::{
-        Action, Branch, Channel, Choice, Recv, RecvEndpoint, Send, SendEndpoint, Terminate,
+        Action, Branch, Channel, Offer, Recv, RecvEndpoint, Send, SendEndpoint, Terminate,
     };
 
     impl<M: std::marker::Send> SendEndpoint<M> for Sender<M> {
@@ -223,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_choice_simple() {
-        type Protocol = Choice<u16, Terminate, Terminate>;
+        type Protocol = Offer<u16, Terminate, Terminate>;
         type Dual = <Protocol as Action>::Dual;
         let (s1, r1) = unbounded();
         let (s2, r2) = unbounded();
@@ -256,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_add_two_or_three_numbers() {
-        type Protocol = Choice<
+        type Protocol = Offer<
             bool,
             Recv<u16, Recv<u16, Send<u16, Terminate>>>,
             Recv<u16, Recv<u16, Recv<u16, Send<u16, Terminate>>>>,
