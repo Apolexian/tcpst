@@ -332,5 +332,6 @@ mod tests {
     }
 }
 
+mod extra_choice;
 mod proto;
 mod tcp;
