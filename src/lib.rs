@@ -1,7 +1,5 @@
 use std::{marker::PhantomData, mem::ManuallyDrop, ptr};
 
-use either::Either;
-
 pub trait SendEndpoint<M>: std::marker::Send {
     fn send(&self, message: M);
 }
@@ -10,13 +8,19 @@ pub trait RecvEndpoint<M>: std::marker::Send {
     fn recv(&self) -> M;
 }
 
-struct Channel<A: Action, M> {
+struct Channel<A, M>
+where
+    A: Action,
+{
     sender: Box<dyn SendEndpoint<M>>,
     receiver: Box<dyn RecvEndpoint<M>>,
     phantom: PhantomData<A>,
 }
 
-impl<A: Action, M> Channel<A, M> {
+impl<A, M> Channel<A, M>
+where
+    A: Action,
+{
     #[must_use]
     pub fn new(sender: Box<dyn SendEndpoint<M>>, receiver: Box<dyn RecvEndpoint<M>>) -> Self {
         Channel {
@@ -30,6 +34,11 @@ impl<A: Action, M> Channel<A, M> {
 pub trait Action {
     type Dual: Action<Dual = Self>;
 }
+
+pub trait Reducable: Action {
+    type Reduced: Action;
+}
+
 pub struct Send<M, A>
 where
     A: Action,
@@ -45,7 +54,14 @@ where
     type Dual = Recv<M, A::Dual>;
 }
 
-impl<M, A: Action, T> Channel<Send<T, A>, M> {
+impl<M, A: Action> Reducable for Send<M, A> {
+    type Reduced = Self;
+}
+
+impl<M, A, T> Channel<Send<T, A>, M>
+where
+    A: Action,
+{
     #[must_use]
     pub fn send(self, message: M) -> Channel<A, M> {
         self.sender.send(message);
@@ -67,14 +83,24 @@ where
     phantom: PhantomData<(M, A)>,
 }
 
-impl<'a, M, A> Action for Recv<M, A>
+impl<M, A> Action for Recv<M, A>
 where
     A: Action,
 {
     type Dual = Send<M, A::Dual>;
 }
 
-impl<M, A: Action, T> Channel<Recv<T, A>, M> {
+impl<M, A> Reducable for Recv<M, A>
+where
+    A: Action,
+{
+    type Reduced = Self;
+}
+
+impl<M, A, T> Channel<Recv<T, A>, M>
+where
+    A: Action,
+{
     #[must_use]
     pub fn recv(self) -> (M, Channel<A, M>) {
         let pin = ManuallyDrop::new(self);
@@ -92,6 +118,10 @@ pub struct Terminate {}
 
 impl Action for Terminate {
     type Dual = Terminate;
+}
+
+impl Reducable for Terminate {
+    type Reduced = Self;
 }
 
 impl<M> Channel<Terminate, M> {
@@ -114,6 +144,14 @@ where
     O: Action,
 {
     type Dual = Choose<M, A::Dual, O::Dual>;
+}
+
+impl<M, A, O> Reducable for Offer<M, A, O>
+where
+    A: Action,
+    O: Action,
+{
+    type Reduced = Self;
 }
 
 pub enum Branch<L, R> {
@@ -167,6 +205,14 @@ where
     type Dual = Offer<M, A::Dual, O::Dual>;
 }
 
+impl<M, A, O> Reducable for Choose<M, A, O>
+where
+    A: Action,
+    O: Action,
+{
+    type Reduced = Self;
+}
+
 impl<A: Action, O: Action, M, T> Channel<Choose<M, A, O>, T> {
     pub fn choose_left(self) -> Channel<A, T> {
         unsafe {
@@ -183,6 +229,39 @@ impl<A: Action, O: Action, M, T> Channel<Choose<M, A, O>, T> {
     }
 }
 
+/// `F` - emitter function
+pub struct Tau<A>
+where
+    A: Action,
+{
+    phantom: PhantomData<A>,
+}
+
+impl<A> Action for Tau<A>
+where
+    A: Action,
+{
+    type Dual = Self;
+}
+
+impl<A> Reducable for Tau<A>
+where
+    A: Reducable,
+{
+    type Reduced = A::Reduced;
+}
+
+impl<A, M> Channel<Tau<A>, M>
+where
+    A: Action,
+{
+    fn do_action<T>(self, mut action: Box<dyn FnMut(T)>, arg: T) -> Channel<A, M> {
+        action(arg);
+        let pin = ManuallyDrop::new(self);
+        unsafe { Channel::new(ptr::read(&(pin).sender), ptr::read(&(pin).receiver)) }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::thread;
@@ -190,7 +269,8 @@ mod tests {
     use crossbeam_channel::{unbounded, Receiver, Sender};
 
     use crate::{
-        Action, Branch, Channel, Offer, Recv, RecvEndpoint, Send, SendEndpoint, Terminate,
+        Action, Branch, Channel, Offer, Recv, RecvEndpoint, Reducable, Send, SendEndpoint, Tau,
+        Terminate,
     };
 
     impl<M: std::marker::Send> SendEndpoint<M> for Sender<M> {
@@ -325,6 +405,74 @@ mod tests {
                         cont.close();
                     }
                 }
+            })
+            .join()
+            .unwrap();
+        };
+    }
+
+    #[test]
+    fn test_simple_tau() {
+        type Protocol = Tau<Terminate>;
+        type Reduced = <Protocol as Reducable>::Reduced;
+        type Client = <Reduced as Action>::Dual;
+
+        fn dummy(s: String) {
+            assert_eq!(s, "hello")
+        }
+
+        let (s1, r1) = unbounded();
+        let (s2, r2) = unbounded();
+        {
+            thread::spawn(|| {
+                let channel_client: Channel<Client, u32> = Channel::new(Box::new(s2), Box::new(r1));
+                channel_client.close();
+            })
+        };
+
+        {
+            thread::spawn(|| {
+                let channel_server: Channel<Protocol, u32> =
+                    Channel::new(Box::new(s1), Box::new(r2));
+                let cont = channel_server.do_action(Box::new(dummy), "hello".to_owned());
+                cont.close();
+            })
+            .join()
+            .unwrap();
+        };
+    }
+
+    #[test]
+    fn test_nested_tau() {
+        type Protocol = Tau<Tau<Send<u32, Terminate>>>;
+        type Reduced = <Protocol as Reducable>::Reduced;
+        type Client = <Reduced as Action>::Dual;
+
+        fn dummy(s: String) {
+            assert_eq!(s, "hello")
+        }
+
+        let (s1, r1) = unbounded();
+        let (s2, r2) = unbounded();
+        {
+            thread::spawn(|| {
+                let num1 = 10_u32;
+                let channel_client: Channel<Client, u32> = Channel::new(Box::new(s2), Box::new(r1));
+                let (num, cont) = channel_client.recv();
+                assert_eq!(num, num1);
+                cont.close();
+            })
+        };
+
+        {
+            thread::spawn(|| {
+                let num1 = 10_u32;
+                let channel_server: Channel<Protocol, u32> =
+                    Channel::new(Box::new(s1), Box::new(r2));
+                let cont = channel_server.do_action(Box::new(dummy), "hello".to_owned());
+                let cont = cont.do_action(Box::new(dummy), "hello".to_owned());
+                let cont = cont.send(num1);
+                cont.close()
             })
             .join()
             .unwrap();
