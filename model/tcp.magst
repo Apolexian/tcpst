@@ -1,0 +1,6 @@
+/* Model for TCP-ST in the Magpi language */
+/* Magpi tooling is a WIP so syntax subject to change */
+
+s[server_kernel_space]:end
+s[server_user_space]:end
+s[client_user_space]:end
