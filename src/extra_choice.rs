@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, mem::ManuallyDrop, ptr};
 
-use crate::{Action, Channel, Offer};
+use crate::binary::{Action, Channel};
 
 pub enum Three<F, S, T> {
     First(F),
