@@ -1,6 +1,44 @@
 /* Model for TCP-ST in the Magpi language */
 /* Magpi tooling is a WIP so syntax subject to change */
 
-s[server_kernel_space]:end
-s[server_user_space]:end
-s[client_user_space]:end
+s[system]:&{
+    app?tcb_new(TCB_INFO).⊕{
+        app!tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
+        app!tcb_created(SOCKET_FD).🕑.&{
+            app?tcb_existing(ACTIVE_OPEN_INFO).🕑.⊕{
+                app!no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
+                app!no_access_error(CONNECTION_ILLEGAL_ERROR).end,
+                app!no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
+                remote!active_open(SYN_SEGMENT).end /* TODO: model rest*/
+            }
+        }
+    },
+    app?tcb_existing(TCB_INFO).&{
+        app!no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
+		app!no_access_error(CONNECTION_ILLEGAL_ERROR).end,
+		app!no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
+        remote!active_open(SYN_SEGMENT).end /* TODO: model rest*/
+    }
+}
+
+s[app]:⊕{
+    system!tcb_new(TCB_INFO).&{
+        system?tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
+        system?tcb_created(SOCKET_FD).🕑.⊕{
+            system!tcb_existing(ACTIVE_OPEN_INFO).🕑.&{
+                system?no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
+				system?no_access_error(CONNECTION_ILLEGAL_ERROR).end,
+				system?no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
+                system?todo(todo).end /* TODO: model rest*/
+            }
+        }
+    },
+    system!tcb_existing(ACTIVE_OPEN_INFO).🕑.&{
+        system?no_remote_socket(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
+		system?no_access_error(CONNECTION_ILLEGAL_ERROR).end,
+		system?no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
+        system?todo(todo).end /* TODO: model rest*/
+    }
+}
+
+s[remote]:system?active_open(SYN_SEGMENT).🕑.⊕{system!temp(temp).end} /* TODO: model rest*/
