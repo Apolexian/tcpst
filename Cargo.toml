@@ -13,5 +13,3 @@ mpstthree = "0.1.16"
 [dev-dependencies]
 crossbeam-channel = "0.5.6"
 
-[features]
-binary-st = []
