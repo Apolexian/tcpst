@@ -314,3 +314,227 @@ Hence, the dynamic verification layer will own objects that can interract with t
 The layer above SMST needs to know which tranisition it think should happen and comapre this with the tranistion in SMST.
 This layer also needs functions that can proivide the choice emition for `offer`.
 If SMST at any point can not accept the transition then it should halt as desynchronized and should probably abort.
+
+## MPST model
+
+### Summary
+
+Mechanisms the model covers:
+
+* Connection Establishment
+    * Recovering from duplicate SYNs
+    * Half-Open
+* Reset-Generation
+* Closing connection
+    * Local user inits
+    * Remote inits
+    * Simul. close
+    * Aborts
+    * Half-duplex
+    * Linger in TIME-WAIT
+* Handling excessive re-transmission
+* Async reports
+* TCP Keep-Alives
+* Zero-Window Probing
+
+As noted in the breakdown, there are mechanisms where a more descriptive payload type
+can implicitly describe what is going on.
+This does not capture the full semantics of e.g. congestion control though.
+
+### Breakdown
+
+* Sequence number comparisons
+
+RFC9293: 3.4. Sequence Numbers - The typical kinds of sequence number comparisons that the TCP implementation must perform.
+Inclusion: Irrelevant to STs.
+
+* Initial sequence number selection
+
+RFC9293: 3.4.1 - A TCP implementation MUST use the above type of "clock" for clock-driven selection of initial sequence numbers.
+Inclusion: Irrelevant to STs.
+
+* Knowing when to keep quiet
+RFC9293: 3.4.2
+Inclusion: Irrelevant according to RFC9293.
+
+* TCP Quiet Time Concept
+RFC9293: 3.4.3
+Inclusion: Exclude - calculus has no way of encoding delaying message transmission.
+
+* Connection Establishment: simple 3WHS
+RFC9293: 3.5 Fig6
+Inclusion: Must have.
+
+* Connection Establishment: Simul. Open
+RFC9293: 3.5 Fig7
+Inclusion: Could have (RFC9293 mentions this as a MUST)
+
+* Connection Establishment: Keep track of passive vs active
+RFC9293: 3.5 - TCP implementation MUST keep track of whether a connection has reached SYN-RECEIVED state as the result of a passive OPEN or an active OPEN.
+Inclusion: Irrelevant to STs.
+
+* Connection Establishment: Recovering from OLD Duplicate SYN
+RFC9293: 3.5 Fig8
+Inclusion: Could have.
+
+* Connection Establishment: Half-Open connection
+RFC9293: 3.5 Fig9
+Inclusion: Could have.
+
+* Connection Establishment: Active Side Causes Half-Open Connection Discovery
+RFC9293: 3.5 Fig10
+Inclusion: Could have.
+
+* Connection Establishment: Old Duplicate SYN Initiates a Reset on Two Passive Sockets
+RFC9293: 3.5 Fig11
+Inclusion: Could have.
+
+* Reset Generation: connection does not exist
+RFC9293: 3.5.2 - If the connection does not exist (CLOSED), then a reset is sent in response to any incoming segment except another reset.
+Inclusion: Could have. Part about where the reset takes its seq number from is irrelevant.
+
+* Reset Generation: non-synchronised state
+RFC9293: 3.5.2 - If the connection is in any non-synchronised state (LISTEN, SYN-SENT, SYN-RECEIVED), and the incoming segment acknowledges something not yet sent (the segment carries an unacceptable ACK), or if an incoming segment has a security level or compartment (Appendix A.1) that does not exactly match the level and compartment requested for the connection, a reset is sent.
+Inclusion: Could have. The actual checks are dynamic. 
+
+* Reset Generation: synchronised state
+RFC9293: 3.5.2 - If an incoming segment has a security level or compartment that does not exactly match the level and compartment requested for the connection, a reset is sent and the connection goes to the CLOSED state. The reset takes its sequence number from the ACK field of the incoming segment.
+Inclusion: Could have. The actual checks are dynamic.
+
+* Reset Processing: validation
+RFC9293: 3.5.3
+Inclusion: Exclude - dynamic check.
+
+* Reset Processing: RST segment includes data
+RFC9293: 3.5.3 - TCP implementations SHOULD allow a received RST segment to include data.
+Inclusion: Irrelevant to STs.
+
+* Closing a Connection: local user initiates the close
+RFC9293: 3.6 Case 1.
+Inclusion: Must have.
+
+* Closing a Connection: remote TCP endpoint initiates by sending a FIN
+RFC9293: 3.6 Case 2.
+Inclusion: Must have.
+
+* Closing a connection: simul. close
+RFC9293 3.6 Case 3.
+Inclusion: Could have.
+
+* Closing a connection: "abort"
+RFC9293: 3.6 - (2) an "abort" in which one or more RST segments are sent and the connection state is immediately discarded.
+Inclusion: Could have. I think this is already covered in the reset processing.
+
+* Closing a connection: Half-duplex
+RFC9293: 3.6.1
+Inclusion: Could have.
+
+* Closing a connection: linger in TIME-WAIT
+RFC9293: 3.6.1
+Inclusion: Must have. Can be modelled via a time-out branch. I.e., TIME-WAIT state is a timeout branch where the timeout causes close.
+Overarching question about Magpi: how do timeout branches specify what the timeout period is?
+
+* Closing a connection - Reducing the TIME-WAIT State Using TCP Timestamps
+RFC6191
+Inclusion: Irrelevant to STs.
+
+* Sending and receiving the MSS Option
+RFC9293: 3.7.1 - TCP endpoints MUST implement both sending and receiving the MSS Option (MUST-14).
+Inclusion: Irrelevant to STs.
+
+* Send an MSS Option in every SYN segment when MSS differs and may send always
+RFC9293: 3.7.1 - TCP implementations SHOULD send an MSS Option in every SYN segment when its receive MSS differs from the default 536 for IPv4 or 1220 for IPv6 (SHLD-5), and MAY send it always (MAY-3).
+Inclusion: Irrelevant to STs.
+
+* Assume default MSS Option if MSS Option not received
+RFC9293: 3.7.1 - If an MSS Option is not received at connection setup, TCP implementations MUST assume a default send MSS of 536 (576 - 40) for IPv4 or 1220 (1280 - 60) for IPv6 (MUST-15).
+Inclusion: Irrelevant to STs.
+
+* Maximum size of a segment TCP endpoint sends
+RFC9293 3.7.1 - The maximum size of a segment that a TCP endpoint really sends, the "effective send MSS", MUST be the smaller (MUST-16) of the send MSS (that reflects the available reassembly buffer size at the remote host, the EMTU_R [19]) and the largest transmission size permitted by the IP layer (EMTU_S [19]).
+Inclusion: Irrelevant to STs.
+
+* Path MTU Discovery
+RFC9293: 3.7.2
+Inclusion: Irrelevant to STs.
+
+* Nagle Algorithm
+RFC9293: 3.7.4
+Inclusion: Can be "implicitly" represented via payload types but actual semantics not possible.
+
+* IPv6 Jumbograms
+RFC9293: 3.7.5
+Inclusion: Irrelevant to STs.
+
+* Computing Re-transmission Timer
+RFC6298
+Inclusion: Irrelevant to STs.
+
+* Karn's algorithm
+RFC6298
+Inclusion: See below.
+
+* Slow start
+RFC5681
+Inclusion: See below.
+
+* Congestion avoidance
+RFC5681
+Inclusion: See below.
+
+* Exponential Backoff:
+RFC5681
+Inclusion: See below.
+
+* ECN
+RFC3168
+Inclusion: See below.
+
+Generally we can describe these semantics via payload types.
+E.g. we could type some payload as SEGMENT_WITH_SMSS_OVER_2190 and assume the parser does this correctly.
+What this gives us is the ability to check that in this given branch we get this payload type.
+Unclear how well this actually represents what is happening in e.g. congestion control.
+
+* Excessive re-transmission of the same segment
+RFC9293: 3.8.3
+Inclusion: Can include, a few ideas for modelling this:
+* The difference between R1 and R2 can be the nesting level of re-transmission branch
+* Timeout branch
+* Value dependent typing
+
+* Inform the application of delivery problems
+RFC9293: 3.9.1.8
+Inclusion: Can include.
+
+* R2 must be set large enough to provide re-transmission of the segment for at least 3 mins.
+RFC9293: 3.8.3
+Inclusion: Irrelevant to STs.
+
+* TCP Keep-Alives
+RFC9293: 3.8.4
+Inclusion: Can include.
+
+* Support for the TCP urgent information mechanism
+RFC9293: 3.8.5
+Inclusion: Seems irrelevant to STs.
+
+* TCP must be robust against window shrinking
+RFC9293: 3.8.6.2.1
+Inclusion: Can include.
+
+* Zero-Window Probing
+RFC9293: 3.8.6.1
+Inclusion: Can include.
+
+* SWS - senders algorithm
+RFC9293: 3.8.6.2.1
+Inclusion: Irrelevant to STs.
+
+* SWS - receivers algorithm
+RFC9293: 3.8.6.2.2
+Inclusion: Irrelevant to STs.
+
+* Delayed ACKs
+RFC9293: 3.8.6.3
+Inclusion: Irrelevant to STs.
+
