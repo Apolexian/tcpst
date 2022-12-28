@@ -1,102 +1,44 @@
 /* Model for TCP-ST in the Magpi language */
 /* Magpi tooling is a WIP so syntax subject to change */
+/* we assume that one participant is a client and the other is a server */
 
-s[local_app]:⊕{
-    local_system!open(OPEN_NOTIF).&{
-        local_system?connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
-        local_system?open(OPEN_NOTIF).⊕{
-            local_system!tcb_new(TCB_INFO).&{
-                local_system?tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
-                local_system?tcb_created(SOCKET_FD).🕑.⊕{
-                    local_system!tcb_existing(ACTIVE_OPEN_INFO).🕑.&{
-                        local_system?no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
-                        local_system?no_access_error(CONNECTION_ILLEGAL_ERROR).end,
-                        local_system?no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-                        local_system?todo(todo).end /* TODO: model rest*/
-                    }
-                }
-            },
-            local_system!tcb_existing(ACTIVE_OPEN_INFO).🕑.&{
-                local_system?no_remote_socket(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
-                local_system?no_access_error(CONNECTION_ILLEGAL_ERROR).end,
-                local_system?no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-                local_system?todo(todo).end /* TODO: model rest*/
-            }
+s[server_app]:+{
+    server_system!tcb_new(TCB_INFO).&{
+        server_system?connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
+        server_system?tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
+        server_system?tcb_created(SOCKET_FD).@.+{
+            /* At this point we are in the LISTEN state */
+            /* TODO: model rest */
         }
     }
 }
 
-s[local_system]:&{
-    local_app?open(OPEN_NOTIF).⊕{
-        local_app!connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
-        local_app!open(OPEN_NOTIF).&{
-            local_app?tcb_new(TCB_INFO).⊕{
-                local_app!tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
-                local_app!tcb_created(SOCKET_FD).🕑.&{
-                    local_app?tcb_existing(ACTIVE_OPEN_INFO).🕑.⊕{
-                        local_app!no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
-                        local_app!no_access_error(CONNECTION_ILLEGAL_ERROR).end,
-                        local_app!no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-                        remote_system?listen_syn_recv(SYN_SEGMENT).end /* TODO: model rest*/
-                    }
-                }
-            },
-            local_app?tcb_existing(TCB_INFO).&{
-                local_app!no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
-                local_app!no_access_error(CONNECTION_ILLEGAL_ERROR).end,
-                local_app!no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-                remote_system!active_open(SYN_SEGMENT).end /* TODO: model rest*/
-            }   
-        }
+s[server_system]:&{
+    server_app?tcb_new(TCB_INFO).+{
+        server_app!connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
+        server_app!tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
+        server_app!tcb_created(SOCKET_FD).@.&{
+            /* LISTEN state */
+            /* TODO: connection estab */
+        } 
     }
 }
 
-s[remote_system]:&{
-    remote_app?open(OPEN_NOTIF).⊕{
-        remote_app!connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
-        remote_app!open(OPEN_NOTIF).&{
-            remote_app?tcb_new(TCB_INFO).⊕{
-                remote_app!tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
-                remote_app!tcb_created(SOCKET_FD).🕑.&{
-                    remote_app?tcb_existing(ACTIVE_OPEN_INFO).🕑.⊕{
-                        remote_app!no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
-                        remote_app!no_access_error(CONNECTION_ILLEGAL_ERROR).end,
-                        remote_app!no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-                        local_system?listen_syn_recv(SYN_SEGMENT).end /* TODO: model rest*/
-                    }
-                }
-            },
-            remote_app?tcb_existing(TCB_INFO).&{
-                remote_app!no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
-                remote_app!no_access_error(CONNECTION_ILLEGAL_ERROR).end,
-                remote_app!no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-                local_system!active_open(SYN_SEGMENT).end /* TODO: model rest*/
-            }   
-        }
+s[client_system]:&{
+    client_app!connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
+    client_app!no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
+    client_app!no_access_error(CONNECTION_ILLEGAL_ERROR).end,
+    client_app!no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
+    server_system!syn(SYN_SEGMENT) /* TODO: connection estab*/
+}
+
+s[client_app]:+{
+    client_system!tcb_new(TCB_INFO).&{
+        client_system?connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
+        client_system?no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
+        client_system?no_access_error(CONNECTION_ILLEGAL_ERROR).end,
+        client_system?no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
+        client_system?todo(todo).end /* TODO: model connection establishment */
     }
 }
 
-s[remote_app]:⊕{
-    remote_system!open(OPEN_NOTIF).&{
-        remote_system?connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
-        remote_system?open(OPEN_NOTIF).⊕{
-            remote_system!tcb_new(TCB_INFO).&{
-                remote_system?tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
-                remote_system?tcb_created(SOCKET_FD).🕑.⊕{
-                    remote_system!tcb_existing(ACTIVE_OPEN_INFO).🕑.&{
-                        remote_system?no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
-                        remote_system?no_access_error(CONNECTION_ILLEGAL_ERROR).end,
-                        remote_system?no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-                        remote_system?todo(todo).end /* TODO: model rest*/
-                    }
-                }
-            },
-            remote_system!tcb_existing(ACTIVE_OPEN_INFO).🕑.&{
-                remote_system?no_remote_socket(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
-                remote_system?no_access_error(CONNECTION_ILLEGAL_ERROR).end,
-                remote_system?no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-                remote_system?todo(todo).end /* TODO: model rest*/
-            }
-        }
-    }
-}
