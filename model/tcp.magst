@@ -7,8 +7,11 @@ s[server_app]:+{
         server_system?connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
         server_system?tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
         server_system?tcb_created(SOCKET_FD).@.+{
-            /* At this point we are in the LISTEN state */
-            /* TODO: model rest */
+            server_system?data(DATA).muT.+{
+                server_system!data(DATA).T, /* TODO */
+                /* TODO: closing a connection */
+                /* TODO: reset generation? */
+            } 
         }
     }
 }
@@ -17,9 +20,24 @@ s[server_system]:&{
     server_app?tcb_new(TCB_INFO).+{
         server_app!connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
         server_app!tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
-        server_app!tcb_created(SOCKET_FD).@.&{
-            /* LISTEN state */
-            /* TODO: connection estab */
+        server_app!tcb_created(SOCKET_FD).muT.@.&{
+            client_system?seg(RST).T, /* an incoming RST should be ignored, so should go back to listen state? */
+            client_system?seg(ACK).client_system!rst(RST).server_app!connection_reset(RST_NOTIF).end, /* any ack is bad if arrives on listen */
+            client_system?other_data(SEG).server_app!connection_reset(RST_NOTIF).end, /* drop the data segment and return */
+            client_system?seg(SYN).@.+{
+                    client_system!security_or_compartment_mismatch(RST).server_app!connection_reset(RST_NOTIF).end, /* security/compartment does not match */
+                    server_app!connection_reset(RST_NOTIF).end,
+                    client_system!seg(SYN_ACK).client_system?seg(SEG).server_app!data(DATA).+{ /* TODO: how does TCP pass data? */
+                    muS.client_system?seg(SEG).@.+{
+                            client_system!seg(SEG).server_app!data(DATA).S,
+                            /* TODO: model acceptance of SEG */
+                            /* TODO: model retransmission */
+                            /* TODO: model RST generation */
+                            /* TODO: model connection closing */
+                        }
+                    }
+                }
+            }
         } 
     }
 }
@@ -29,7 +47,27 @@ s[client_system]:&{
     client_app!no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
     client_app!no_access_error(CONNECTION_ILLEGAL_ERROR).end,
     client_app!no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-    server_system!syn(SYN_SEGMENT) /* TODO: connection estab*/
+    muT.server_system!seg(SEG).@.&{
+        server_system?security_or_compartment_mismatch(RST).client_app!connection_reset(RST_NOTIF).end, /* TODO: check app interraction */
+        server_system?rst(RST).client_app!connection_reset(RST_NOTIF).end, /* TODO: check app interraction */
+        server_system?ack(ACK).@.+{
+            server_system!ack_unacceptable(RST).client_app!connection_reset(RST_NOTIF).end, /* TODO: check app interraction */
+            muS.server_system!seg(SEG).@.& {
+                server_system?seg(SEG).client_app!data(DATA).S, /* TODO: how does TCP pass data? */
+                /* TODO: model acceptance of SEG */
+                /* TODO: model retransmission */
+                /* TODO: model RST generation */
+                /* TODO: model connection closing */
+                
+            }
+        }
+    }
+    server_system!seg(SEG).@.& {
+            server_system?ack(ACK).@.+{
+                server_system?rst(RST).end,
+                server_system!ack(ACK).todo /* established, send data */
+            }
+        }
 }
 
 s[client_app]:+{
@@ -38,7 +76,11 @@ s[client_app]:+{
         client_system?no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
         client_system?no_access_error(CONNECTION_ILLEGAL_ERROR).end,
         client_system?no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-        client_system?todo(todo).end /* TODO: model connection establishment */
+        client_system?data(DATA).muT.+{
+            client_system!data(DATA).T, /* TODO */
+            /* TODO: closing a connection */
+            /* TODO: reset generation */
+        }
     }
 }
 
