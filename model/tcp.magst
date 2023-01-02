@@ -27,7 +27,7 @@ s[server_system]:&{
             client_system?seg(SYN).@.+{
                     client_system!security_or_compartment_mismatch(RST).server_app!connection_reset(RST_NOTIF).end, /* security/compartment does not match */
                     server_app!connection_reset(RST_NOTIF).end,
-                    client_system!seg(SYN_ACK).client_system?seg(SEG).server_app!data(DATA).+{ /* TODO: how does TCP pass data? */
+                    client_system!seg(SYN_ACK).client_system?seg(ACK).server_app!data(DATA).+{ /* TODO: how does TCP pass data? */
                     muS.client_system?seg(SEG).@.+{
                             client_system!seg(SEG).server_app!data(DATA).S,
                             /* TODO: model acceptance of SEG */
