@@ -2,82 +2,83 @@
 /* Magpi tooling is a WIP so syntax subject to change */
 /* we assume that one participant is a client and the other is a server */
 
-s[server_app]:+{
-    server_system!tcb_new(TCB_INFO).&{
-        server_system?connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
-        server_system?tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
-        server_system?tcb_created(SOCKET_FD).+{
-            server_system?data(DATA).muT.+{
-                server_system!data(DATA).T, /* TODO */
-                /* TODO: closing a connection */
-                /* TODO: reset generation? */
-            } 
+s[server_app]:<+>{
+    server_system<+>tcb_new(TCB_INFO).&{
+        server_system&connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
+        server_system&tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
+        server_system&no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
+        server_system&tcb_created(SOCKET_FD).muT.server_system&read_queue(DATA)<+>{
+            /* TODO: closing a connection */
+            /* TODO: reset generation */
+            server_system<+>write_queue(DATA).T,
         }
     }
 }
 
-s[server_system]:&{
-    server_app?tcb_new(TCB_INFO).+{
-        server_app!connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
-        server_app!tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
-        server_app!tcb_created(SOCKET_FD).muT.&{
-            client_system?seg(RST).T,
-            client_system?seg(ACK).client_system!rst(RST).server_app!connection_reset(RST_NOTIF).T,
-            client_system?other_data(SEG).server_app!connection_reset(RST_NOTIF).T,
-            client_system?seg(SYN).@.+{
+s[server_system]:server_app&tcb_new(TCB_INFO){
+    server_app<+>connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
+    server_app<+>tcb_init_error(DIFFSERV_SECURITY_ERROR_TUPLE).end,
+    server_app<+>no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
+    server_app<+>tcb_created(SOCKET_FD).muT.&{
+        client_system&seg(RST).T,
+        client_system&seg(ACK).client_system<+>rst(RST).server_app<+>connection_reset(RST_NOTIF).T,
+        client_system&other_data(SEG).server_app<+>connection_reset(RST_NOTIF).T,
+        client_system&seg(SYN).<+>{
+            client_system<+>security_or_compartment_mismatch(RST).server_app<+>connection_reset(RST_NOTIF).T, /* security/compartment does not match */
+            server_app<+>connection_reset(RST_NOTIF).T,
+            client_system<+>seg(SYN_ACK).client_system&seg(ACK).@.&{
+                @.todo, /* retransmission */
+                muS.client_system&seg(SEG).@.<+>{
+                    @.todo, /* have not recieved new segments in timeout time */
+                    server_app<+>read_queue(DATA).server_app&write_queue(DATA).client_system<+>seg(SEG).S,
+                    /* TODO: model acceptance of ack and seq */
+                    /* TODO: model retransmission */
+                    /* TODO: model RST generation */
+                    /* TODO: model connection closing */
+                }
+            }
+        }
+    }
+}
+
+s[client_system]:client_app&tcb_new(TCB_INFO).&{
+    client_app<+>connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
+    client_app<+>no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
+    client_app<+>no_access_error(CONNECTION_ILLEGAL_ERROR).end,
+    client_app<+>no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
+    muT.client_app&write_queue(DATA).server_system<+>seg(SEG).@.&{
+        @.todo /* retransmission */
+        server_system&security_or_compartment_mismatch(RST).client_app<+>connection_reset(RST_NOTIF).end, /* TODO: check app interraction */
+        server_system&rst(RST).client_app<+>connection_reset(RST_NOTIF).end, /* TODO: check app interraction */
+        server_system&seg(ACK).@.<+>{
+            /* TODO: model connection closing */
+            /* TODO: model RST generation */
+            @.todo /* retransmission */
+            muS.client_app&write_queue(DATA).<+>{
+                client_app<+>no_room_error(INSUFFICIENT_RESOURCES_ERROR).end, /* TODO: end? */
+                client_app<+>connection_does_not_exist_error(CONNECTION_DOES_NOT_EXIST_ERROR).end, /* TODO: end? */
+                server_system<+>seg(SEG).@.&{
                     @.todo, /* retransmission */
-                    client_system!security_or_compartment_mismatch(RST).server_app!connection_reset(RST_NOTIF).T, /* security/compartment does not match */
-                    server_app!connection_reset(RST_NOTIF).T,
-                    client_system!seg(SYN_ACK).client_system?seg(ACK).@.&{
-                        @.todo, /* retransmission */
-                        muS.client_system?seg(SEG).@.+{
-                           @.todo, /* have not recieved new segments in timeout time */
-                           client_system!seg(SEG).server_app!data(DATA).S, /* send a seg with ACK and any data and pass data to app */
-                            /* TODO: model acceptance of ack and seq */
-                            /* TODO: model retransmission */
-                            /* TODO: model RST generation */
-                            /* TODO: model connection closing */
-                        }
+                    server_system&seg(SEG).<+>{
+                        client_app<+>read_queue(DATA).S,
+                        /* TODO: seg could be not accepted */
                     }
                 }
             }
-        } 
-    }
-}
-
-s[client_system]:&{
-    client_app!connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
-    client_app!no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
-    client_app!no_access_error(CONNECTION_ILLEGAL_ERROR).end,
-    client_app!no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-    muT.server_system!seg(SEG).@.&{
-        @.todo /* retransmission */
-        server_system?security_or_compartment_mismatch(RST).client_app!connection_reset(RST_NOTIF).end, /* TODO: check app interraction */
-        server_system?rst(RST).client_app!connection_reset(RST_NOTIF).end, /* TODO: check app interraction */
-        server_system?ack(ACK).@.+{
-            @.todo /* retransmission */
-            server_system!ack_unacceptable(RST).client_app!connection_reset(RST_NOTIF).end, /* TODO: check app interraction */
-            muS.server_system!seg(SEG).@.& {
-                @.todo,
-                server_system?seg(SEG).client_app!data(DATA).S, /* TODO: how does TCP pass data? */
-                /* TODO: model acceptance of SEG */
-                /* TODO: model retransmission */
-                /* TODO: model RST generation */
-                /* TODO: model connection closing */
-                
-            }
         }
     }
 }
 
-s[client_app]:+{
-    client_system!tcb_new(TCB_INFO).&{
-        client_system?connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
-        client_system?no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
-        client_system?no_access_error(CONNECTION_ILLEGAL_ERROR).end,
-        client_system?no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
-        client_system?data(DATA).muT.+{
-            client_system!data(DATA).T, /* TODO */
+s[client_app]:<+>{
+    client_system<+>tcb_new(TCB_INFO).&{
+        client_system&connection_already_exists_error(CONNECTION_EXISTS_ERROR).end,
+        client_system&no_remote_socket_error(REMOTE_SOCKET_UNSPECIFIED_ERROR).end,
+        client_system&no_access_error(CONNECTION_ILLEGAL_ERROR).end,
+        client_system&no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
+        muT.client_system<+>write_queue(DATA).&{
+            client_system&no_room_error(INSUFFICIENT_RESOURCES_ERROR).end,
+            client_system&connection_does_not_exist_error(CONNECTION_DOES_NOT_EXIST_ERROR).end,
+            client_system&read_queue(DATA).T,
             /* TODO: closing a connection */
             /* TODO: reset generation */
         }
