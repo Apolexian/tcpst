@@ -1,0 +1,38 @@
+s[server_user]: server_system<+>tcb_new(TcbInfo).
+    server_system&{
+        error_connection_exists(ErrorConnectionExists).end,
+        error_tcb_init(ErrorDiffservSecurity).end,
+        error_no_room(ErrorInsufficientResources).end,
+        tcb_created(SocketFd).mu(a)(
+            server_system&read_queue(Data).server_system<+>{
+                connection_reset(RstNotif).end,
+                write_queue(Data).a
+            }
+        )
+    },
+
+s[server_system]: server_user&tcb_new(TcbInfo).
+    server_user<+>{
+        error_connection_exists(ErrorConnectionExists).end,
+        error_tcb_init(ErrorDiffservSecurity).end,
+        error_no_room(ErrorInsufficientResources).end,
+        tcb_created(SocketFd).client_system&{
+            rst(SegRstSet).server_user<+>connection_reset(RstNotif).end,
+            ack(SegAckSet).client_system<+>rst(SegRstSet).server_user<+>rst(RstNotif).end,
+            seg_data(SegDataCarrying).server_user<+>connection_reset(RstNotif),
+            syn(SegSynSet).client_system<+>{
+                sec_or_compart_mismatch(SegRstSet).server_user<+>connection_reset(RstNotif).end,
+                syn_ack(SegSynAckSet).mu(b)(
+                    client_system&{
+                        accepted(SegAckSet).server_user<+>read_queue(Data).server_user&write_queue(Data).client_system<+>seg(SegAckSet).b,
+                        not_accepted(SegAckSet).end
+                    }
+                )
+            }
+        }
+    },
+
+s[client_system]: end,
+
+s[client_user]: end
+
