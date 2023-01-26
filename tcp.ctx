@@ -2,7 +2,10 @@ s[server_user]: server_system<+>tcb_new(TcbInfo).server_system&{
     error_no_room(ErrorInsufficientResources).end,
     error_tcb_init(ErrorDiffservSecurity).end,
     tcb_created(SocketFd).mu(t)(
-        server_system&read_queue(Data).server_system<+>write_queue(Data).t
+        server_system&{
+            read_queue(Data).server_system<+>write_queue(Data).t,
+            close_init(Close).server_system<+>close_init(Close).server_system&close(Close).end
+        }
     )
 },
 
@@ -10,7 +13,11 @@ s[server_system]: server_user&tcb_new(TcbInfo).server_user<+>{
     error_tcb_init(ErrorDiffservSecurity).end,
     error_no_room(ErrorInsufficientResources).end,
     tcb_created(SocketFd).client_system&syn(SegSynSet).client_system<+>syn_ack(SegSynAckSet).mu(t)(
-        client_system&acceptable(SegAckSet).server_user<+>read_queue(Data).server_user&write_queue(Data).client_system<+>seg(SegAckSet).t
+        client_system&{
+            acceptable(SegAckSet).server_user<+>read_queue(Data).server_user&write_queue(Data).client_system<+>acceptable(SegAckSet).t,
+            fin(SegFinSet).server_user<+>close_init(Close).server_user&close_init(Close).client_system<+>
+                fin_ack(SegFinAckSet).client_system&ack(SegAckSet).server_user<+>close(Close).end
+        }
     )
 },
 
@@ -19,7 +26,11 @@ s[client_system]: client_user&tcb_new(TcbInfo).client_user<+>{
     error_no_room(ErrorInsufficientResources).end,
     error_no_remote_socket(ErrorRemoteUnspecified).end,
     tcb_created(SocketFd).server_system<+>syn(SegSynSet).server_system&syn_ack(SegSynAckSet).mu(t)(
-        client_user&write_queue(Data).server_system<+>acceptable(SegAckSet).server_system&acceptable(SegAckSet).client_user<+>read_queue(Data).t      
+        client_user&{
+            write_queue(Data).server_system<+>acceptable(SegAckSet).server_system&acceptable(SegAckSet).client_user<+>read_queue(Data).t,
+            close_init(Close).server_system<+>fin(SegFinSet).server_system&fin_ack(SegFinAckSet).server_system
+                <+>ack(SegAckSet).client_user<+>close(Close).end
+        }
     )
 },
 
@@ -28,7 +39,10 @@ s[client_user]: client_system<+>tcb_new(TcbInfo).client_system&{
     error_no_room(ErrorInsufficientResources).end,
     error_no_remote_socket(ErrorRemoteUnspecified).end,
     tcb_created(SocketFd).mu(t)(
-        client_system<+>write_queue(Data).client_system&read_queue(Data).t
+        client_system<+>{
+            write_queue(Data).client_system&read_queue(Data).t,
+            close_init(Close).client_system&close(Close).end
+        }
     )
 }
 
