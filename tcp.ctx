@@ -19,17 +19,21 @@ s[server_system]: server_user&tcb_new(TcbInfo).server_user<+>{
     tcb_created(SocketFd).client_system&syn(SegSynSet).client_system<+>syn_ack(SegSynAckSet).mu(t)(
         client_system&{
             acceptable(SegAckSet).server_user<+>read_queue(Data).server_user&{
-                write_queue(Data).client_system<+>acceptable(SegAckSet).t,
+                write_queue(Data).client_system<+>{
+                    acceptable(SegAckSet).t,
+                    rto_exceeded(SegAckSet).client_system&retransmit(SegAckSet).client_system<+>{
+                        ack(SegAckSet).t,
+                        retry_threshold_exceeded(SegRstSet).server_user<+>connection_aborted(Close).end
+                    }
+                },
                 close_init(Close).client_system<+>fin(SegFinSet).client_system&{
                     fin_ack(SegFinAckSet).client_system<+>ack(SegAckSet).server_user<+>close(Close).end,
                     fin(SegFinSet).client_system<+>ack(SegAckSet).client_system&ack(SegAckSet).server_user<+>close(Close).end
                 }
             },
-            rto_exceeded(SegAckSet).client_system<+>{
-                retransmit(SegAckSet).client_system&{
-                    ack(SegAckSet).t,
-                    retry_threshold_exceeded(SegRstSet).server_user<+>connection_aborted(Close).end
-                }
+            rto_exceeded(SegAckSet).client_system<+>retransmit(SegAckSet).client_system&{
+                ack(SegAckSet).t,
+                retry_threshold_exceeded(SegRstSet).server_user<+>connection_aborted(Close).end
             },
             fin(SegFinSet).server_user<+>close_init(Close).server_user&close_init(Close).client_system<+>{
                 fin_ack(SegFinAckSet).client_system&ack(SegAckSet).server_user<+>close(Close).end,
@@ -51,6 +55,10 @@ s[client_system]: client_user&tcb_new(TcbInfo).client_user<+>{
                     fin(SegFinSet).client_user<+>close_init(Close).client_user&close_init(Close).server_system<+>{
                         fin_ack(SegFinAckSet).server_system&ack(SegAckSet).client_user<+>close(Close).end,
                         fin(SegFinSet).server_system&ack(SegAckSet).server_system<+>ack(SegAckSet).client_user<+>close(Close).end
+                    },
+                    rto_exceeded(SegAckSet).server_system<+>retransmit(SegAckSet).server_system&{
+                        ack(SegAckSet).t,
+                        retry_threshold_exceeded(SegRstSet).client_user<+>connection_aborted(Close).end
                     }
                 },
                 rto_exceeded(SegAckSet).server_system&retransmit(SegAckSet).server_system<+>{
