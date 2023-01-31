@@ -1,0 +1,83 @@
+\documentclass{article}
+
+\usepackage[backend=bibtex]{biblatex}
+\usepackage{color}
+\usepackage[nottoc]{tocbibind}
+\usepackage{graphicx}
+
+\addbibresource{ref.bib}
+
+\graphicspath{ {./assets/} }
+
+
+\newcommand{\todo}[1]{}
+\renewcommand{\todo}[1]{{\color{red} TODO: {#1}}}
+
+\title{tcpst todo}
+\author{todo}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{intro}
+
+\todo{
+    \begin{itemize}
+        \item Something on IETF and RFCs
+        \item Motivation behind formalising RFCs
+        \item Session types (possibly how is this different to other formalisms?)
+    \end{itemize}
+}
+
+\section{Background}
+
+\todo{
+    \begin{itemize}
+        \item some info on other formalisms and why STs are interesting, basically motivation for using STs
+        \item ST - is there a point in explaining binary?
+        \item MPST - is there a point in explaining classic vs less is more?
+        \item could include syntax of less is more for context 
+        \item should mention that the tool works by translating ST context to mcrl2 checker (not sure if in too much detail)
+        \item how are STs useful in PLs? Could include snippet here from my Rust lib as examples
+        \item how are STs useful outside of PLs? I.e. that less is more has the model checking tool
+    \end{itemize}
+}
+
+\section{Discussion/models}
+
+\todo{
+    \begin{itemize}
+        \item explain what properties we are checking for and what they mean
+        \item pop3 model - we can see that its df, all versions of liveness and safe, could be non terminating which is fine
+        \item tcp model - harder protocol, calculus cant describe it fully, not df hence lose over properties
+        \item why its still useful
+        \item why are we not using some calculus with time-outs? (tooling non existent, unclear what these languages mean by timeout)
+        \item what other stuff is missing - what can we model using STs and what can we not?
+        \item difference in how RFCs are designed and STs - non state based, continuation can make things not actually parallel (especially without async)
+        \item how easy is it to solve this discrepancy using some IR? (\todo{if this point is raised, should probably actually make such an IR?})
+        \item how do we see people using STs for RFCs - should probably make a case for this being hidden away and generated automatically?
+        \item could make some case for some syntax sugar suggestions and modify syntax to include this but this is a dubious contribution?
+    \end{itemize}
+}
+
+\section{Future directions}
+
+\todo{
+    \begin{itemize}
+        \item balancing static and dynamic checks
+        \item context free?
+        \item a more "practical" calculus
+        \item parsing and code generation, running model checker on translated code (e.g. in Rust) rather than on sepp ST language
+        \item feedback for RFC maker - how can we use this output to direct the document writing? Can we extract the exact point where something went wrong?
+        \item e.g. we do something and the model is no longer safe, can we say why?
+        \item if we want to include the binary ST library then could talk about how systems languages are suited for STs?
+        \item translating ST type contexts to other model checkers?
+    \end{itemize}
+}
+
+\medskip
+\nocite{*}
+\printbibliography
+\end{document}
