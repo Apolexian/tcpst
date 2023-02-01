@@ -4,14 +4,21 @@
 \usepackage{color}
 \usepackage[nottoc]{tocbibind}
 \usepackage{graphicx}
+\usepackage{amsthm}
+\usepackage{mathtools,textgreek}
+\usepackage{amsmath,amsfonts,amsbsy,amssymb}
+\usepackage{geometry}
+\usepackage{namespc}
 
 \addbibresource{ref.bib}
 
 \graphicspath{ {./assets/} }
 
-
 \newcommand{\todo}[1]{}
 \renewcommand{\todo}[1]{{\color{red} TODO: {#1}}}
+
+\providecommand{\tyselect}[3][]{\ensuremath{{#2}\mathbin{\oplus^{#1}}({#3})}}
+\newcommand{\sep}{\;\mid\;}
 
 \title{tcpst todo}
 \author{todo}
@@ -56,6 +63,7 @@
         \item why are we not using some calculus with time-outs? (tooling non existent, unclear what these languages mean by timeout)
         \item what other stuff is missing - what can we model using STs and what can we not?
         \item difference in how RFCs are designed and STs - non state based, continuation can make things not actually parallel (especially without async)
+        \item what is not done by current ST theory? E.g. The ST concept of time mostly is based on a timeout - how do we describe things like in X time we can send at most Y segments?
         \item how easy is it to solve this discrepancy using some IR? (\todo{if this point is raised, should probably actually make such an IR?})
         \item how do we see people using STs for RFCs - should probably make a case for this being hidden away and generated automatically?
         \item could make some case for some syntax sugar suggestions and modify syntax to include this but this is a dubious contribution?
@@ -76,6 +84,29 @@
         \item translating ST type contexts to other model checkers?
     \end{itemize}
 }
+
+\section{Random bits that will go somewhere}
+
+\[
+\begin{array}{rcl}
+  \ensuremath{c}
+    & \Coloneq & \ensuremath{s[r] \colon S} \cr
+  \ensuremath{r}
+    & \Coloneq & \ensuremath{v} \cr
+  \ensuremath{S}
+    & \Coloneqq & \ensuremath{r \oplus \{l_i(P_i).S_i\}_{i \in I}}
+    \sep        \ensuremath{r \& \{l_i(P_i).S_i\}_{i \in I}}
+    \sep        \ensuremath{\mu(t).(S)}
+    \sep        \ensuremath{t}
+    \sep        \ensuremath{end} \cr
+  \ensuremath{P}
+    & \Coloneq & \ensuremath{\{TcpPayloadTypes\} \cup \{Pop3PayloadTypes\}}
+\end{array}
+\]
+
+We only need to consider a simplified subset of the \pi-calculus.
+Specifically, we do not consider that a session itself can be sent on a channel.
+This choice is made as the presented network protocols would not benefit from such a mechanism.
 
 \medskip
 \nocite{*}
