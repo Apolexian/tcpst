@@ -9,6 +9,8 @@
 \usepackage{amsmath,amsfonts,amsbsy,amssymb}
 \usepackage{geometry}
 \usepackage{namespc}
+\usepackage{cmll}
+\usepackage{float}
 
 \addbibresource{ref.bib}
 
@@ -17,7 +19,6 @@
 \newcommand{\todo}[1]{}
 \renewcommand{\todo}[1]{{\color{red} TODO: {#1}}}
 
-\providecommand{\tyselect}[3][]{\ensuremath{{#2}\mathbin{\oplus^{#1}}({#3})}}
 \newcommand{\sep}{\;\mid\;}
 
 \title{tcpst todo}
@@ -87,26 +88,47 @@
 
 \section{Random bits that will go somewhere}
 
-\[
-\begin{array}{rcl}
-  \ensuremath{c}
-    & \Coloneq & \ensuremath{s[r] \colon S} \cr
-  \ensuremath{r}
-    & \Coloneq & \ensuremath{v} \cr
-  \ensuremath{S}
-    & \Coloneqq & \ensuremath{r \oplus \{l_i(P_i).S_i\}_{i \in I}}
-    \sep        \ensuremath{r \& \{l_i(P_i).S_i\}_{i \in I}}
-    \sep        \ensuremath{\mu(t).(S)}
-    \sep        \ensuremath{t}
-    \sep        \ensuremath{end} \cr
-  \ensuremath{P}
-    & \Coloneq & \ensuremath{\{TcpPayloadTypes\} \cup \{Pop3PayloadTypes\}}
-\end{array}
-\]
+A new theory of multiparty session types (LM) developed by Scalas and Yoshida~\cite{SY19} removes the concepts of global types and duality.
+Instead, LM introduces the concept of behavioural type-level properties.
+This change leads to a less restrictive subject reduction that provides a more general theory than classic multiparty session types.
 
-We only need to consider a simplified subset of the \pi-calculus.
-Specifically, we do not consider that a session itself can be sent on a channel.
-This choice is made as the presented network protocols would not benefit from such a mechanism.
+\todo{explain behavioural type-level properties}
+
+\todo{explain how LM is linked to the model checker and introduce the tool}
+
+\todo{explain what benefits model checker has}
+
+
+\begin{figure}[H]
+    \centering
+        $
+        \begin{array}{rcl}
+        \ensuremath{c}
+            & \Coloneqq & \ensuremath{s[r] \colon S} \cr
+        \ensuremath{S}
+            & \Coloneqq & \ensuremath{r \oplus \{l_i(P_i).S_i\}_{i \in I}}
+            \sep        \ensuremath{r \with \{l_i(P_i).S_i\}_{i \in I}}
+            \sep        \ensuremath{\mu(t).(S)}
+            \sep        \ensuremath{t}
+            \sep        \ensuremath{end} \cr
+        \ensuremath{P}
+            & \Coloneqq & \ensuremath{\{TcpPayloadTypes\} \cup \{Pop3PayloadTypes\}}
+        \end{array}
+        $
+    \caption{The syntax of session type contexts used to create the protocol models in \ensuremath{mpstk}.}
+    \label{fig:syntax}
+\end{figure}
+
+Using the \ensuremath{mpstk} tool we have created models of the POP3 and TCP network protocols.
+
+\todo{explain why TCP is multiparty, check: is this the first ST model that considers TCP to be multiparty?}
+
+The syntax for the session type language that the protocols are written in is presented in Figure~\ref{fig:syntax}.
+We do not omit this as the syntax of the language used for \ensuremath{mpstk} differs to that of LM.
+Additionally, we only need to consider a simplified subset of the calculus.
+Note that \ensuremath{P} can not be an instance of \ensuremath{S}, that is, we do not consider sending sessions across channels.
+Although this is standard to the theory of \ensuremath{\pi}-calculus, the presented network protocols would not benefit from such a mechanism.
+Hence, the payload types are restricted to the defined TCP and POP3 payload types.
 
 \medskip
 \nocite{*}
