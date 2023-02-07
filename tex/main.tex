@@ -11,6 +11,18 @@
 \usepackage{namespc}
 \usepackage{cmll}
 \usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\setlength{\parindent}{0em}
+\setlength{\parskip}{0.5em}
+\hypersetup{%
+    colorlinks=true,
+    linkcolor=blue,
+    bookmarksnumbered,
+    citecolor=blue,
+    urlcolor=blue,
+    bookmarksopen=true}
 
 \addbibresource{ref.bib}
 
@@ -18,6 +30,8 @@
 
 \newcommand{\todo}[1]{}
 \renewcommand{\todo}[1]{{\color{red} TODO: {#1}}}
+\renewcommand{\ttfamily}{\usefont{T1}{lmtt}{}{n}}
+\newcommand{\type}[1]{\texttt{#1}}
 
 \newcommand{\sep}{\;\mid\;}
 
@@ -37,37 +51,94 @@
 
 \subsection{Session Types}
 
-\todo{binary explanation?}
+Session types are a behavioural typing discipline that were first introduced by Honda~\cite{H93} as a typed formalism for concurrency.
+Session types represent a series of actions that each have a type and a direction of data exchange.
+Importantly, session types dictate the protocols that the channels must use to communicate.
+Consider an example where a client \textbf{C} sends two strings to a server \textbf{S} representing the username and password of the user needed for authentication and expects a boolean, confirming if the user is to be authenticated and then terminates:
 
-Multiparty session types (MPST) are a typing discipline that allows us to ensure that a protocol adheres to its session type.
-As the name suggests, the theory of MPST focuses on communication between multiple participants.
-The classic theory of MPST~\cite{todo} the communication is described from a global view and then projected to the local view of each participant.
-\todo{example of classic mpst}.
+\begin{equation*}
+    \textbf{C} \; = \; \type{!String.!String.?Boolean.end}
+\end{equation*}
+
+This session type describes that \textbf{C}, sends (\type{!}) two strings and then receives (\type{?}) a boolean and then terminates (\type{end}). From the perspective of the server, we have the \textit{dual} session type:
+
+\begin{equation*}
+    \textbf{S} \; = \; \type{?String.?String.!Boolean.end}
+\end{equation*}
+
+We can see that the server cannot proceed in a way that would be incompatible with the client. This is guaranteed by the notion of \textit{duality}, which means that the sending and receiving sides have consistent typing.
+For example, when \textbf{C} sends a string, \textbf{S} expects to receive a string.
+
+We can further understand the importance of duality in a slightly more complex example. Consider now that client \textbf{C} can first choose an authentication method, credentials or token, provide the chosen method and terminate, while the server \textbf{S} will offer two authentication methods and then proceed accordingly depending on the method chosen by the client and terminate:
+\begin{align*}
+    \begin{split}
+        \textbf{C} \; = \; \oplus \;\{\; &\textit{cred}: \type{!String.!String.?Boolean.end}, \\ & \textit{token}: \type {!String.?Boolean.end} \;\}\;
+    \end{split}
+\end{align*}
+\begin{align*}
+    \begin{split}
+       \textbf{S} \; = \; \& \;\{\; &\textit{cred}: \type{?String.?String.!Boolean.end}, \\ & \textit{token}: \type {?String.!Boolean.end} \;\}\;
+    \end{split}
+\end{align*}
+We now have a session type where the client chooses (\type{$\oplus$}) one of the possible branches that the server offers (\type{\&}), which is represented via the constructs of \textit{selection} and \textit{branching}. Due to the duality concept, the client can't select an authentication method not provided by the server. Hence, we can see how duality ensures \textit{communication safety} by ensuring the compatibility of session types.
+
+Having defined what is meant by session types, it is important to note that the examples provided used \textit{binary session types}; that is, all communication is handled on one channel by two participants. 
+To model more complex protocols where two or more participants interact, \textit{multiparty session types}~\cite{HYC16} (MPST) can be used. 
+In classic MPST theory, we define a \textit{global type} that describes the communication of all participants and then \textit{project} this into \textit{local session types}, which represent the communication from the viewpoint of each participant.
+While the classic MPST theory gives us a global view of communication, it is also overly restrictive in the processes that can be typed and caused flaws in subject reduction.
 In this work we use the more general multiparty session type theory (LM) presented by Scalas and Yoshida~\cite{SY19}.
 Unlike the classic theory, LM does not base itself on the concepts of global types and duality.
-This makes the LM calculus more general - it is able to type more processes.
-In addition to this, LM solves the subject reduction flaws that were present in classic MPST theory.
+This decoupling from binary session type theory makes the LM calculus more general.
 
-The LM view of multiparty session types is based on the concept of parametrised safety invariants.
-This parameter can be adjusted to enforce a number of run-time properties such as deadlock freedom and liveness.
+The LM view of multiparty session types is based on the concept of a weak typing context \textit{safety invariant}.
+A LM type system is parametric on the safety invariant, that is, by changing the parameter we can control what processes are typed based on the properties that we want.
+The weakest of the invariants is simply safety.
+The safe invariant ensures that we have corresponding branches for selections, that recursive unfoldings are safe and that reductions are also safe if the context being reduced is safe.
+In order to be typeable under any LM type system a protocol must be at least safe.
+The authors present several typing context properties centered around deadlock freedom and liveness.
+Consider an example of a protocol in LM:
 
-The protocol presented in \todo{the previous example of classic MPST} can be re-written in LM to produce the following typing context.
+\begin{figure}[H]
+    \centering
+$
+    \begin{array}{rl}
+        \textbf{\ensuremath{\Gamma}} \; = \;  & s[a]:\type{b\ensuremath{\with}\textit{l1}(int).c\ensuremath{\oplus}\textit{l3}(int).end}, \cr
+        & s[b]:\type{c\ensuremath{\with}\textit{l2}(int).a\ensuremath{\oplus}l1(int)}, \cr
+        & s[c]:\type{a\ensuremath{\with}\textit{l3}(int).b\ensuremath{\oplus}l2(int).end}
+    \end{array}
+$
+\end{figure}
 
-\todo{same protocol in LM}
+In this context we have a communication between three participants: \type{a}, \type{b} and \type{c}.
+We use \ensuremath{l_{i \in I}} to denote labels and the type between brackets denotes the message type.
+Unlike the previous binary session type example we use \type{\ensuremath{\oplus}} to denote sending and \type{\ensuremath{\with}} to denote receiving.
+This is simply because sending is a case of selection and receving is a case of branching where each only have one option.
+This syntax choice can similarly be made in binary session types.
 
-If we have a typing context for a protocol that holds with an instantiated safety invariant, then we can say that the run-time process types under this context will hold a similar run-time property.
-
-For example, \todo{explain on example}.
+If we instantiate \type{\ensuremath{\Gamma}} with \type{\ensuremath{\phi}} = \textit{safe}, and derive the needed typing judgement then we will see that this protocol type checks.
+However, by instantiating \type{\ensuremath{\phi}} = \textit{deadlock-free}, and deriving the typing judgement, we will see that the protocol is not well typed. To emphasise, we have made a \textit{static} typing judgement to derive the \textit{runtime} behaviour of a process that abides by \type{\ensuremath{\Gamma}}.
+This distinction is crucial as the authors show that the typing context properties are \textit{decidable}, while the rutime process properties are not.
+Hence, if we implement a protocol that follows the session typed context \type{\ensuremath{\Gamma}}, we know that it will not be deadlock free.
+A further advantage of this flexible theory is its ability to be integrated into various systems.
+Specifically, the authors express \type{\ensuremath{\phi}} as a formula in the \type{\ensuremath{\mu}}-calulus and develop the \ensuremath{mpstk} tool that translates session typed contexts to the \ensuremath{mcrl2}~\cite{todo} model checker to verify various safety invariants.
 
 \section{Formalising Internet Protocols Using Session Types}
 
-\todo{
-    \begin{itemize}
-        \item extracting the typing context from the RFC - discussion on created IR
-        \item checking typing context for safety properties
-        \item generating code based on typing context that will hold these properties
-    \end{itemize}
-}
+Based on this, we leverage session type theory to first ensure that an implementation of a protocol follows its corresponding RFC and then to check the kind of runtime properties the protocol has.
+We do this through the following contributions:
+
+\begin{itemize}
+    \item An IR to be used in the RFC to extract a session type of the communication state machine of the protocol.
+    \item A tool to generate the protocol's session type based on the RFC in the Rust programming language, thus ensuring that the implementation has to follow the described protocol.
+    \item A supporting implementation of multiparty session types in the Rust programming language that is generated alongside the protocol's session type.
+    \item A tool to generate the corresponding \ensuremath{mpstk} typing context, giving us the ability to check for various properties such as deadlock freedom and liveness.
+\end{itemize}
+
+We have chosen to focus on TCP as a demonstration of the tooling chain because \todo.
+
+\todo{IR}
+\todo{impl and generation - explain how session types help us in Rust (example where something has to follow the session type)}
+\todo{explain mpstk, syntax, model checking, etc}
 
 \section{Discussion On Limitations Of The Theory}
 
@@ -90,16 +161,6 @@ For example, \todo{explain on example}.
     \end{itemize}
 }
 
-A new theory of multiparty session types (LM) developed by Scalas and Yoshida~\cite{SY19} removes the concepts of global types and duality.
-Instead, LM introduces the concept of behavioural type-level properties.
-This change leads to a less restrictive subject reduction that provides a more general theory than classic multiparty session types.
-
-\todo{explain behavioural type-level properties}
-
-\todo{explain how LM is linked to the model checker and introduce the tool}
-
-\todo{explain what benefits model checker has}
-
 
 \begin{figure}[H]
     \centering
@@ -114,14 +175,12 @@ This change leads to a less restrictive subject reduction that provides a more g
             \sep        \ensuremath{t}
             \sep        \ensuremath{end} \cr
         \ensuremath{P}
-            & \Coloneqq & \ensuremath{\{TcpPayloadTypes\} \cup \{Pop3PayloadTypes\}}
+            & \Coloneqq & \ensuremath{\{TcpPayloadTypes\}}
         \end{array}
         $
     \caption{The syntax of session type contexts used to create the protocol models in \ensuremath{mpstk}.}
     \label{fig:syntax}
 \end{figure}
-
-Using the \ensuremath{mpstk} tool we have created models of the POP3 and TCP network protocols.
 
 \todo{explain why TCP is multiparty, check: is this the first ST model that considers TCP to be multiparty?}
 
@@ -130,7 +189,7 @@ We do not omit this as the syntax of the language used for \ensuremath{mpstk} di
 Additionally, we only need to consider a simplified subset of the calculus.
 Note that \ensuremath{P} can not be an instance of \ensuremath{S}, that is, we do not consider sending sessions across channels.
 Although this is standard to the theory of \ensuremath{\pi}-calculus, the presented network protocols would not benefit from such a mechanism.
-Hence, the payload types are restricted to the defined TCP and POP3 payload types.
+Hence, the payload types are restricted to the defined TCP payload types.
 
 \medskip
 \nocite{*}
