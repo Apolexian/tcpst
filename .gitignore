@@ -1,5 +1,5 @@
-/target
-/Cargo.lock
+mpstrust/target/
+mpstrust/Cargo.lock
 .vscode/
 
 ## Core latex/pdflatex auxiliary files:
