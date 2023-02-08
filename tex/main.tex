@@ -85,18 +85,18 @@ We now have a session type where the client chooses (\type{$\oplus$}) one of the
 Having defined what is meant by session types, it is important to note that the examples provided used \textit{binary session types}; that is, all communication is handled on one channel by two participants. 
 To model more complex protocols where two or more participants interact, \textit{multiparty session types}~\cite{HYC16} (MPST) can be used. 
 In classic MPST theory, we define a \textit{global type} that describes the communication of all participants and then \textit{project} this into \textit{local session types}, which represent the communication from the viewpoint of each participant.
-While the classic MPST theory gives us a global view of communication, it is also overly restrictive in the processes that can be typed and caused flaws in subject reduction.
+While the classic MPST theory gives us a global view of communication, it is also overly restrictive in the processes that can be typed due to the consistency restriction.
 In this work we use the more general multiparty session type theory (LM) presented by Scalas and Yoshida~\cite{SY19}.
 Unlike the classic theory, LM does not base itself on the concepts of global types and duality.
 This decoupling from binary session type theory makes the LM calculus more general.
 
 The LM view of multiparty session types is based on the concept of a weak typing context \textit{safety invariant}.
-A LM type system is parametric on the safety invariant, that is, by changing the parameter we can control what processes are typed based on the properties that we want.
+A LM type system is parametric on the safety invariant, that is, by changing the parameter we can control what processes are typed, based on the properties that we want.
 The weakest of the invariants is simply safety.
 The safe invariant ensures that we have corresponding branches for selections, that recursive unfoldings are safe and that reductions are also safe if the context being reduced is safe.
 In order to be typeable under any LM type system a protocol must be at least safe.
 The authors present several typing context properties centered around deadlock freedom and liveness.
-Consider an example of a protocol in LM:
+An example of a protocol in LM looks like the following:
 
 \begin{figure}[H]
     \centering
@@ -109,29 +109,37 @@ $
 $
 \end{figure}
 
-In this context we have a communication between three participants: \type{a}, \type{b} and \type{c}.
+In this typing context we have a communication between three participants: \type{a}, \type{b} and \type{c}.
+Each participant has a local view of their communication chain, denoted by the \ensuremath{s[role]} syntax.
+Similarly, each action is annotated with the participant that the action is directed towards.
 We use \ensuremath{l_{i \in I}} to denote labels and the type between brackets denotes the message type.
 Unlike the previous binary session type example we use \type{\ensuremath{\oplus}} to denote sending and \type{\ensuremath{\with}} to denote receiving.
-This is simply because sending is a case of selection and receving is a case of branching where each only have one option.
-This syntax choice can similarly be made in binary session types.
+This is a purely syntactical choice - sending is a case of selection and receiving is a case of branching where each only have one option.
 
 If we instantiate \type{\ensuremath{\Gamma}} with \type{\ensuremath{\phi}} = \textit{safe}, and derive the needed typing judgement then we will see that this protocol type checks.
-However, by instantiating \type{\ensuremath{\phi}} = \textit{deadlock-free}, and deriving the typing judgement, we will see that the protocol is not well typed. To emphasise, we have made a \textit{static} typing judgement to derive the \textit{runtime} behaviour of a process that abides by \type{\ensuremath{\Gamma}}.
-This distinction is crucial as the authors show that the typing context properties are \textit{decidable}, while the rutime process properties are not.
-Hence, if we implement a protocol that follows the session typed context \type{\ensuremath{\Gamma}}, we know that it will not be deadlock free.
-A further advantage of this flexible theory is its ability to be integrated into various systems.
-Specifically, the authors express \type{\ensuremath{\phi}} as a formula in the \type{\ensuremath{\mu}}-calulus and develop the \ensuremath{mpstk} tool that translates session typed contexts to the \ensuremath{mcrl2}~\cite{todo} model checker to verify various safety invariants.
+Hence, a protocol adhering to this session type can be expected to exhibit a similar property at runtime. 
+However, by instantiating \type{\ensuremath{\phi}} = \textit{deadlock-free}, and deriving the typing judgement, we will see that the context is not well typed.
+Hence, we can expect that a protocol adhering to this session type will deadlock.
+To emphasise, we have made a \textit{static} typing judgement to derive the \textit{runtime} behaviour of a process that abides by \type{\ensuremath{\Gamma}}.
+This distinction is crucial as the authors show that the typing context properties are \textit{decidable}, while the runtime process properties are not.
+To perform these typing judgements the authors show a further advantage of the flexibility of their theory.
+Specifically, its ability to be integrated into various systems.
+The authors express \type{\ensuremath{\phi}} as a formula in the \type{\ensuremath{\mu}}-calculus and develop the \ensuremath{mpstk} tool that translates session typed contexts to the \ensuremath{mcrl2}~\cite{BGKLNVWWW19} model checker.
+Hence, typing judgements over various safety invariants can be made automatically.
 
 \section{Formalising Internet Protocols Using Session Types}
 
-Based on this, we leverage session type theory to first ensure that an implementation of a protocol follows its corresponding RFC and then to check the kind of runtime properties the protocol has.
+Based on this, we leverage session type theory to aid network protocol developers during both the draft and implementation stages of protocol design.
+We demonstrate how a multiparty session type system can be incorporated and used in a systems programming language to enforce protocol adherence.
+Additionally, we provide the translation tooling needed to leverage session types when creating the state machine in the RFC.
+Thus, we are able to ensure that an implementation of a protocol follows its corresponding RFC and check the kind of runtime properties the protocol has.
 We do this through the following contributions:
 
 \begin{itemize}
     \item An IR to be used in the RFC to extract a session type of the communication state machine of the protocol.
     \item A tool to generate the protocol's session type based on the RFC in the Rust programming language, thus ensuring that the implementation has to follow the described protocol.
     \item A supporting implementation of multiparty session types in the Rust programming language that is generated alongside the protocol's session type.
-    \item A tool to generate the corresponding \ensuremath{mpstk} typing context, giving us the ability to check for various properties such as deadlock freedom and liveness.
+    \item A tool to generate the \ensuremath{mpstk} typing context either from the session type definition in Rust or directly from the IR. This can be used to check the protocol for desirable properties.
 \end{itemize}
 
 We have chosen to focus on TCP as a demonstration of the tooling chain because \todo.
