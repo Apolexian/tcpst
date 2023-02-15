@@ -1,197 +1,154 @@
 use std::marker::PhantomData;
 
 pub trait Action {
-    fn new() -> Self;
+    fn new() -> Self
+    where
+        Self: Sized;
 }
 
-struct RecvFromRoleA<M, A>
+pub trait Message {}
+
+enum BranchingsOfferToRoleA3Choices {
+    Branch0,
+    Branch1,
+    Branch2,
+}
+
+struct OfferToRoleA3Choices<M0, M1, M2, A0, A1, A2>
 where
-    A: Action,
+    M0: Message,
+    M1: Message,
+    M2: Message,
+    A0: Action,
+    A1: Action,
+    A2: Action,
 {
-    phantom: PhantomData<(M, A)>,
+    phantom: PhantomData<(M0, M1, M2, A0, A1, A2)>,
 }
 
-impl<M, A> Action for RecvFromRoleA<M, A>
+impl<M0, M1, M2, A0, A1, A2> Action for OfferToRoleA3Choices<M0, M1, M2, A0, A1, A2>
 where
-    A: Action,
+    M0: Message,
+    M1: Message,
+    M2: Message,
+    A0: Action,
+    A1: Action,
+    A2: Action,
 {
     fn new() -> Self {
-        RecvFromRoleA {
+        OfferToRoleA3Choices {
             phantom: PhantomData,
         }
     }
 }
 
-impl<M, A> RecvFromRoleA<M, A>
+impl<M0, M1, M2, A0, A1, A2> OfferToRoleA3Choices<M0, M1, M2, A0, A1, A2>
 where
-    A: Action,
+    M0: Message + 'static,
+    M1: Message + 'static,
+    M2: Message + 'static,
+    A0: Action + 'static,
+    A1: Action + 'static,
+    A2: Action + 'static,
 {
-    pub fn recv(self, emitter: Box<dyn Fn() -> M>) -> (M, A) {
-        let message = emitter();
-        (message, A::new())
+    pub fn offer(
+        self,
+        emitter0: Box<dyn Fn() -> M0>,
+        emitter1: Box<dyn Fn() -> M1>,
+        emitter2: Box<dyn Fn() -> M2>,
+        picker: Box<dyn Fn() -> BranchingsOfferToRoleA3Choices>,
+    ) -> (Box<dyn Message>, Box<dyn Action>) {
+        let choice = picker();
+        match choice {
+            BranchingsOfferToRoleA3Choices::Branch0 => {
+                let message = emitter0();
+                return (Box::new(message), Box::new(A0::new()));
+            }
+            BranchingsOfferToRoleA3Choices::Branch1 => {
+                let message = emitter1();
+                return (Box::new(message), Box::new(A1::new()));
+            }
+            BranchingsOfferToRoleA3Choices::Branch2 => {
+                let message = emitter2();
+                return (Box::new(message), Box::new(A2::new()));
+            }
+        }
     }
 }
-
-struct SendToRoleA<M, A>
-where
-    A: Action,
-{
-    phantom: PhantomData<(M, A)>,
+enum BranchingsSelectFromRoleA3Choices {
+    Branch0,
+    Branch1,
+    Branch2,
 }
 
-impl<M, A> SendToRoleA<M, A>
+struct SelectFromRoleA3Choices<M0, M1, M2, A0, A1, A2>
 where
-    A: Action,
+    M0: Message,
+    M1: Message,
+    M2: Message,
+    A0: Action,
+    A1: Action,
+    A2: Action,
 {
-    pub fn send(self, message: M, emitter: Box<dyn Fn(M)>) -> A {
-        emitter(message);
-        A::new()
-    }
+    phantom: PhantomData<(M0, M1, M2, A0, A1, A2)>,
 }
 
-impl<M, A> Action for SendToRoleA<M, A>
+impl<M0, M1, M2, A0, A1, A2> Action for SelectFromRoleA3Choices<M0, M1, M2, A0, A1, A2>
 where
-    A: Action,
+    M0: Message,
+    M1: Message,
+    M2: Message,
+    A0: Action,
+    A1: Action,
+    A2: Action,
 {
     fn new() -> Self {
-        SendToRoleA {
+        SelectFromRoleA3Choices {
             phantom: PhantomData,
         }
     }
 }
 
-struct RecvFromRoleB<M, A>
+impl<M0, M1, M2, A0, A1, A2> SelectFromRoleA3Choices<M0, M1, M2, A0, A1, A2>
 where
-    A: Action,
+    M0: Message + 'static,
+    M1: Message + 'static,
+    M2: Message + 'static,
+    A0: Action + 'static,
+    A1: Action + 'static,
+    A2: Action + 'static,
 {
-    phantom: PhantomData<(M, A)>,
-}
-
-impl<M, A> Action for RecvFromRoleB<M, A>
-where
-    A: Action,
-{
-    fn new() -> Self {
-        RecvFromRoleB {
-            phantom: PhantomData,
+    pub fn select(
+        self,
+        emitter0: Box<dyn Fn(M0)>,
+        emitter1: Box<dyn Fn(M1)>,
+        emitter2: Box<dyn Fn(M2)>,
+        message0: M0,
+        message1: M1,
+        message2: M2,
+        picker: Box<dyn Fn() -> BranchingsSelectFromRoleA3Choices>,
+    ) -> Box<dyn Action> {
+        let choice = picker();
+        match choice {
+            BranchingsSelectFromRoleA3Choices::Branch0 => {
+                emitter0(message0);
+                return Box::new(A0::new());
+            }
+            BranchingsSelectFromRoleA3Choices::Branch1 => {
+                emitter1(message1);
+                return Box::new(A1::new());
+            }
+            BranchingsSelectFromRoleA3Choices::Branch2 => {
+                emitter2(message2);
+                return Box::new(A2::new());
+            }
         }
     }
 }
-
-impl<M, A> RecvFromRoleB<M, A>
-where
-    A: Action,
-{
-    pub fn recv(self, emitter: Box<dyn Fn() -> M>) -> (M, A) {
-        let message = emitter();
-        (message, A::new())
-    }
-}
-
-struct SendToRoleB<M, A>
-where
-    A: Action,
-{
-    phantom: PhantomData<(M, A)>,
-}
-
-impl<M, A> SendToRoleB<M, A>
-where
-    A: Action,
-{
-    pub fn send(self, message: M, emitter: Box<dyn Fn(M)>) -> A {
-        emitter(message);
-        A::new()
-    }
-}
-
-impl<M, A> Action for SendToRoleB<M, A>
-where
-    A: Action,
-{
-    fn new() -> Self {
-        SendToRoleB {
-            phantom: PhantomData,
-        }
-    }
-}
-
-struct RecvFromRoleC<M, A>
-where
-    A: Action,
-{
-    phantom: PhantomData<(M, A)>,
-}
-
-impl<M, A> Action for RecvFromRoleC<M, A>
-where
-    A: Action,
-{
-    fn new() -> Self {
-        RecvFromRoleC {
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<M, A> RecvFromRoleC<M, A>
-where
-    A: Action,
-{
-    pub fn recv(self, emitter: Box<dyn Fn() -> M>) -> (M, A) {
-        let message = emitter();
-        (message, A::new())
-    }
-}
-
-struct SendToRoleC<M, A>
-where
-    A: Action,
-{
-    phantom: PhantomData<(M, A)>,
-}
-
-impl<M, A> SendToRoleC<M, A>
-where
-    A: Action,
-{
-    pub fn send(self, message: M, emitter: Box<dyn Fn(M)>) -> A {
-        emitter(message);
-        A::new()
-    }
-}
-
-impl<M, A> Action for SendToRoleC<M, A>
-where
-    A: Action,
-{
-    fn new() -> Self {
-        SendToRoleC {
-            phantom: PhantomData,
-        }
-    }
-}
-
 struct End {}
 
 impl Action for End {
     fn new() -> Self {
         End {}
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Action, End, RecvFromRoleB, RecvFromRoleC, SendToRoleA, SendToRoleC};
-
-    type C = SendToRoleA<u32, RecvFromRoleB<u32, End>>;
-    type A = RecvFromRoleC<u32, RecvFromRoleB<u32, End>>;
-    type B = SendToRoleC<u32, SendToRoleA<u32, End>>;
-
-    #[test]
-    fn it_works_2() {
-        let context_a: A = Action::new();
-        let context_b: B = Action::new();
-        let context_C: C = Action::new();
     }
 }
