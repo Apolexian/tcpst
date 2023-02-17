@@ -155,6 +155,54 @@ where
         }
     }
 }
+
+enum BranchingsSelectA3Choices<A, B, C> {
+    One(A),
+    Two(B),
+    Three(C),
+}
+
+impl<M0, M1, M2, A0, A1, A2> SelectFromRoleA3Choices<M0, M1, M2, A0, A1, A2>
+where
+    M0: Message + 'static + Clone,
+    M1: Message + 'static + Clone,
+    M2: Message + 'static + Clone,
+    A0: Action + 'static,
+    A1: Action + 'static,
+    A2: Action + 'static,
+{
+    pub fn offer<F>(
+        self,
+        emitter0: Box<dyn Fn(M0)>,
+        emitter1: Box<dyn Fn(M1)>,
+        emitter2: Box<dyn Fn(M2)>,
+        message0: M0,
+        message1: M1,
+        message2: M2,
+    ) -> Box<dyn Fn(F) -> Box<dyn Action>>
+    where
+        F: Fn() -> BranchingsSelectA3Choices<(M0, A0), (M1, A1), (M2, A2)>,
+    {
+        Box::new(move |picker| {
+            let choice = picker();
+            match choice {
+                BranchingsSelectA3Choices::One(_) => {
+                    emitter0(message0.clone());
+                    return Box::new(A0::new());
+                }
+                BranchingsSelectA3Choices::Two(_) => {
+                    emitter1(message1.clone());
+                    return Box::new(A1::new());
+                }
+                BranchingsSelectA3Choices::Three(_) => {
+                    emitter2(message2.clone());
+                    return Box::new(A2::new());
+                }
+            }
+        })
+    }
+}
+
 struct End {}
 
 impl Action for End {
