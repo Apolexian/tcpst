@@ -14,6 +14,12 @@ enum BranchingsOfferToRoleA3Choices {
     Branch2,
 }
 
+enum BranchingsA3Choices<A, B, C> {
+    One(A),
+    Two(B),
+    Three(C),
+}
+
 struct OfferToRoleA3Choices<M0, M1, M2, A0, A1, A2>
 where
     M0: Message,
@@ -51,28 +57,32 @@ where
     A1: Action + 'static,
     A2: Action + 'static,
 {
-    pub fn offer(
+    pub fn offer<F>(
         self,
         emitter0: Box<dyn Fn() -> M0>,
         emitter1: Box<dyn Fn() -> M1>,
         emitter2: Box<dyn Fn() -> M2>,
-        picker: Box<dyn Fn() -> BranchingsOfferToRoleA3Choices>,
-    ) -> (Box<dyn Message>, Box<dyn Action>) {
-        let choice = picker();
-        match choice {
-            BranchingsOfferToRoleA3Choices::Branch0 => {
-                let message = emitter0();
-                return (Box::new(message), Box::new(A0::new()));
+    ) -> Box<dyn Fn(F) -> (Box<dyn Message>, Box<dyn Action>)>
+    where
+        F: Fn() -> BranchingsA3Choices<(M0, A0), (M1, A1), (M2, A2)>,
+    {
+        Box::new(move |picker| {
+            let choice = picker();
+            match choice {
+                BranchingsA3Choices::One(_) => {
+                    let message = emitter0();
+                    return (Box::new(message), Box::new(A0::new()));
+                }
+                BranchingsA3Choices::Two(_) => {
+                    let message = emitter1();
+                    return (Box::new(message), Box::new(A1::new()));
+                }
+                BranchingsA3Choices::Three(_) => {
+                    let message = emitter2();
+                    return (Box::new(message), Box::new(A2::new()));
+                }
             }
-            BranchingsOfferToRoleA3Choices::Branch1 => {
-                let message = emitter1();
-                return (Box::new(message), Box::new(A1::new()));
-            }
-            BranchingsOfferToRoleA3Choices::Branch2 => {
-                let message = emitter2();
-                return (Box::new(message), Box::new(A2::new()));
-            }
-        }
+        })
     }
 }
 enum BranchingsSelectFromRoleA3Choices {
