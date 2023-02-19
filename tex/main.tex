@@ -199,6 +199,21 @@ Note that \ensuremath{P} can not be an instance of \ensuremath{S}, that is, we d
 Although this is standard to the theory of \ensuremath{\pi}-calculus, the presented network protocols would not benefit from such a mechanism.
 Hence, the payload types are restricted to the defined TCP payload types.
 
+\section{Extracting the model}
+
+The session-typed model of TCP was extracted manually from the RFC.
+The model expresses the initial call to OPEN, connection establishment, the main data communication loop, retransmission and connection closing.
+It is of course poss
+The exact matchings from the RFC to the corresponding parts of the model can be found in table~\ref{todo}.
+In the initial OPEN call we assume that one side is the server and the other is a client.
+Hence, we only model the case where the server side requests a passive-open and the client side requests an active-open.
+It is also possible to express more finegrained cases, for example, having an explicit type for each identifier needed for the call and handling for each case.
+After this the connection establishment phase begins.
+We model this through the basic three-way handshake.
+It is also possible to express the other cases for connection establishment, such as simultaneous open.
+We opt to explicitly type the connection establishment packets as `SegSynAckSet`, `SegAckSet` and `SegSynSet` instead of just `Seg`.
+This allows for more fine grained typechecking as we can reject erroneous flag combinations.
+
 \medskip
 \nocite{*}
 \printbibliography
