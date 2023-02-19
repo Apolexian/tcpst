@@ -13,9 +13,15 @@
 \usepackage{float}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{booktabs}
 \usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{xltabular}
+\usepackage{ltablex}
+\usepackage[raggedrightboxes]{ragged2e}
 \setlength{\parindent}{0em}
 \setlength{\parskip}{0.5em}
+\setlength{\tabcolsep}{15pt}
 \hypersetup{%
     colorlinks=true,
     linkcolor=blue,
@@ -32,8 +38,17 @@
 \renewcommand{\todo}[1]{{\color{red} TODO: {#1}}}
 \renewcommand{\ttfamily}{\usefont{T1}{lmtt}{}{n}}
 \newcommand{\type}[1]{\texttt{#1}}
-
+\newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
 \newcommand{\sep}{\;\mid\;}
+\newcommand{\serveruser}{\type{server\_user}}
+\newcommand{\serversystem}{\type{server\_system}}
+\newcommand{\clientuser}{\type{client\_user}}
+\newcommand{\clientsystem}{\type{client\_system}}
+
+\newcolumntype{b}{X}
+\newcolumntype{s}{>{\hsize=.55\hsize}X}
+\newcolumntype{a}{>{\hsize=.15\hsize}X}
+\newcolumntype{f}{>{\hsize=.3\hsize}X}
 
 \title{tcpst todo}
 \author{todo}
@@ -131,44 +146,11 @@ Hence, typing judgements over various safety invariants can be made automaticall
 
 Based on this, we leverage session type theory to aid network protocol developers during both the draft and implementation stages of protocol design.
 We demonstrate how a multiparty session type system can be incorporated and used in a systems programming language to enforce protocol adherence.
-Additionally, we provide the translation tooling needed to leverage session types when creating the state machine in the RFC.
-Thus, we are able to ensure that an implementation of a protocol follows its corresponding RFC and check the kind of runtime properties the protocol has.
-We do this through the following contributions:
-
-\begin{itemize}
-    \item An IR to be used in the RFC to extract a session type of the communication state machine of the protocol.
-    \item A tool to generate the protocol's session type based on the RFC in the Rust programming language, thus ensuring that the implementation has to follow the described protocol.
-    \item A supporting implementation of multiparty session types in the Rust programming language that is generated alongside the protocol's session type.
-    \item A tool to generate the \ensuremath{mpstk} typing context either from the session type definition in Rust or directly from the IR. This can be used to check the protocol for desirable properties.
-\end{itemize}
-
 We have chosen to focus on TCP as a demonstration of the tooling chain because \todo.
 
-\todo{IR}
-\todo{impl and generation - explain how session types help us in Rust (example where something has to follow the session type)}
-\todo{explain mpstk, syntax, model checking, etc}
+\subsection{Multiparty Session Type Implementation}
 
-\section{Discussion On Limitations Of The Theory}
-
-\todo{
-    \begin{itemize}
-        \item We can't express notion of throughput
-        \item Generally unclear how we should describe "how much data is being sent" - is this the number of send calls or does the message need to be extended to express this?
-        \item There are calculi that do timed and timeouts but these do not have the tooling
-        \item Implementation limitations - heterogeneous channels (whats the overhead?), no variadic generics in Rust, will probably encounter other
-    \end{itemize}
-}
-
-\section{Future Directions}
-
-\todo{
-    \begin{itemize}
-        \item other properties we may want to parametrise?
-        \item model checker reporting - where is property violated?
-        \item considering other protocols to exploit other theory of STs? - context free, multiplicities?
-    \end{itemize}
-}
-
+\subsection{Property checking}
 
 \begin{figure}[H]
     \centering
@@ -190,8 +172,6 @@ We have chosen to focus on TCP as a demonstration of the tooling chain because \
     \label{fig:syntax}
 \end{figure}
 
-\todo{explain why TCP is multiparty, check: is this the first ST model that considers TCP to be multiparty?}
-
 The syntax for the session type language that the protocols are written in is presented in Figure~\ref{fig:syntax}.
 We do not omit this as the syntax of the language used for \ensuremath{mpstk} differs to that of LM.
 Additionally, we only need to consider a simplified subset of the calculus.
@@ -199,20 +179,147 @@ Note that \ensuremath{P} can not be an instance of \ensuremath{S}, that is, we d
 Although this is standard to the theory of \ensuremath{\pi}-calculus, the presented network protocols would not benefit from such a mechanism.
 Hence, the payload types are restricted to the defined TCP payload types.
 
-\section{Extracting the model}
+\subsection{Extracting the model}
 
-The session-typed model of TCP was extracted manually from the RFC.
-The model expresses the initial call to OPEN, connection establishment, the main data communication loop, retransmission and connection closing.
-It is of course poss
-The exact matchings from the RFC to the corresponding parts of the model can be found in table~\ref{todo}.
-In the initial OPEN call we assume that one side is the server and the other is a client.
+As previously discussed, we opt to use multiparty session types to model the TCP protocol.
+Multiparty communication allows us to express TCP closer to its RFC description as opposed to the usual binary session type view of the protocol.
+While the binary session type view treats server and client as the only two participants, we explicitly model the communication between the system implementation of TCP and the userspace.
+\todo{Check if this is the first ST model that considers TCP to be multiparty?}
+Hence, we have extracted the following roles - the userspace of the server, the server side implementation of TCP, the client side implementation of TCP and the userspace of the client.
+The server side of the communication is described by the {\serveruser} and {\serversystem} participants and correspondingly the client side  consists of the {\clientuser} and the {\clientsystem}.
+These four roles capture the majority of the state machine described in the RFC, but it is possible to add more roles to explicitly express some TCP features, for example, the protocol's error reporting to the IP layer.
+While this would be more accurate, it would also make the model more complex and was deemed out of scope for the initial session typed view of the TCP state machine.
+
+Our model expresses the initial call to open and create a TCB, connection establishment, the main data communication loop, retransmission and connection closing.
+The matchings from the RFC to the corresponding parts of the model can be found in Table~\ref{table:model_rfc_match}.
+Note that for each RFC exert we do not show every place where we model this behaviour.
+Rather we show an example of it and the corresponding line number to show how this can be expressed.
+
+In the initial OPEN call we assume that one side is the server and the other side is a client.
 Hence, we only model the case where the server side requests a passive-open and the client side requests an active-open.
-It is also possible to express more finegrained cases, for example, having an explicit type for each identifier needed for the call and handling for each case.
-After this the connection establishment phase begins.
+It is also possible to express more fine-grained cases, for example, having an explicit type for each parameter needed for the call and handling each case.
+Adding these is trivial if needed and is analogous to adding more match cases and does not change the flow of communication.
+
+After the TCB is created, the connection establishment phase begins.
 We model this through the basic three-way handshake.
 It is also possible to express the other cases for connection establishment, such as simultaneous open.
-We opt to explicitly type the connection establishment packets as `SegSynAckSet`, `SegAckSet` and `SegSynSet` instead of just `Seg`.
-This allows for more fine grained typechecking as we can reject erroneous flag combinations.
+Again, this is trivial to add and is omitted for readability.
+We do, however, opt to explicitly type the connection establishment packets as \type{SegSynAckSet}, \type{SegAckSet} and \type{SegSynSet} instead of just \type{Seg}.
+This allows us to demonstrate the assurances that session types can provide.
+By extracting these flag combinations as types, we enforce that during connection establishment we must exhibit the correct pattern.
+That is, the server must receive a segment with the SYN flag sent and respond with a segment with the SYN-ACK flags set.
+Hence, we do not need to explicitly model the client sending unwanted segments and the server then handling these.
+This is because a TCP implementation written using an implementation of session types would not be able to send segments with wrong flags set, assuming a well behaved parser.
+So, by being explicit in our types we have more control over the segments being sent which gives us flexibility in how we want to model the protocol.
+We can choose to be more general and handle error cases explicitly, or we can be more constrained in what we are allowed to send by having narrower types and disallow such edge-cases from occurring.
+
+Once the handshake is complete we initiate the data communication loop by instantiating a recursive variable on each side.
+On the server side, the recursive block accepts a segment from the client and in the case of an accepted sequence number sends that data to its user.
+The server then reads from the user and sends a segment with data to the client.
+
+The user can also respond with a CLOSE call, starting the connection closing phase of the protocol.
+We model the cases where either server or client initiate the closing handshake by sending a segment with the FIN flag set.
+Note that due to the underlying language not having timeouts we do not explicitly model the TIME-AWAIT state.
+Instead this is an implied external transition, the server sends the user a CLOSE once the timeout fires outside the session typed state machine.
+There are languages that use timeouts in session types~\cite{todo} but currently there are no implementations nor tooling based on this theory that could be used for this work.
+
+During data communication it is also possible that we receive an unacceptable segment, in which case retransmission occurs.
+In the retransmission cases, the server either successfully receives an acknowledgement for the retransmitted segment or the retry threshold is exceeded and the connection is aborted.
+We have not put retransmission everywhere where it is possible as this would make the model unreadable, while not showcasing any other modelling techniques.
+It is technically possible for retransmission to occur at any stage of the communication after the very first segment is sent.
+Hence, we would need to copy the retransmission block after every communication.
+This is further noted in our discussion on the usability of session types in Section~\ref{todo}.
+
+On the client side, data communication, connection closing and retransmission are analogous.
+
+\todo{What have we not modelled that is important for TCP? \\
+Possibly:\\
+\begin{itemize}
+    \item Dynamically setting RTO
+    \item Reset generation
+    \item Sending reset (trivial to add but not an interesting case)
+    \item Keep-alives
+    \item Retransmission queue is not explicit since this is not part of the communication between roles (could be expressed as another role?)
+    \item Communicating errors to IP layer - new role?
+    \item Congestion control external state machine - could be yet another role?
+    \item Zero-Window Probing - implicit in data communication, could be made more explicit via message types
+    \item Delayed Acknowledgments - we dont have segmentation semantics, its implied that one message = one segment sent but we cant reason about "we sent X segments, now send an ACK", I think this can be done with context free STs?
+\end{itemize}
+}
+
+\begin{xltabular}{\textwidth}{asf}\hline
+    Line Number & Model Snippet & RFC Extract\\\hline
+    \RaggedRight{$1, 16, 77, 46$}&
+    \RaggedRight{{\serversystem \type{<+>tcb\_new(TcbInfo)}} \serveruser \type{\&tcb\_new(TcbInfo)} \clientsystem \type{<+>tcb\_new(TcbInfo)} \clientuser \type{\&tcb\_new(TcbInfo)}}&
+    \RaggedRight{"Create a new transmission control block (TCB) to hold connection state information..."}\\\hline
+    \RaggedRight{$17, 3$}&
+    \RaggedRight{\serveruser \type{<+>error(DiffservSecurity)} \serversystem \type{\&error(DiffservSecurity)}}&
+    \RaggedRight{"Verify the security and Diffserv value requested are allowed for this user, if not, return "error: Diffserv value not allowed" or "error: security/compartment not allowed""}\\\hline
+    \RaggedRight{$49, 80$}&
+    \RaggedRight{\clientuser \type{<+>error(RemoteUnspecified)} \clientsystem \type{\&error(RemoteUnspecified)}}&
+    \RaggedRight{"If active and the remote socket is unspecified, return "error: remote socket unspecified""}\\\hline
+    \RaggedRight{$47, 78$}&
+    \RaggedRight{\clientuser \type{<+>error(ConnectionIllegal)} \clientsystem \type{\&error(ConnectionIllegal)}}&
+    \RaggedRight{"If the caller does not have access to the local socket specified, return "error: connection illegal for this process"."}\\\hline
+    \RaggedRight{$48, 79$}&
+    \RaggedRight{\clientuser \type{<+>error(Insufficient...)} \clientsystem \type{\&error(Insufficient...)}}&
+    \RaggedRight{"If there is no room to create a new connection, return "error: insufficient resources""}\\\hline
+    \RaggedRight{$50, 19$}&
+    \RaggedRight{\serversystem \type{<+>syn(SegSynSet)} \clientsystem \type{\&syn(SegSynSet)}}&
+    \RaggedRight{"...if active and the remote socket is specified, issue a SYN segment."}\\\hline
+    \RaggedRight{$19, 50$}&
+    \RaggedRight{\clientsystem \type{<+>syn\_ack(SegSynAckSet)} \serversystem \type{\&syn\_ack(SegSynAckSet)}}&
+    \RaggedRight{"...TCP Peer B sends a SYN and acknowledges the SYN it received from TCP Peer A..."}\\\hline
+    \RaggedRight{$53, 21$}&
+    \RaggedRight{\serversystem \type{<+>{acceptable(SegAckSet)} \clientsystem \type{\&{acceptable(SegAckSet)}}}}&
+    \RaggedRight{"...TCP Peer A responds with an empty segment containing an ACK for TCP Peer B's SYN..."}\\\hline
+    \RaggedRight{$19, 50$}&
+    \RaggedRight{\type{mu(t)(...)}}&
+    \RaggedRight{"Once the connection is established, data is communicated by the exchange of segments..."}\\\hline
+    \RaggedRight{$34, 64$}&
+    \RaggedRight{\clientsystem \type{<+>rto\_exceeded(SegAckSet)} \serversystem \type{\&rto\_exceeded(SegAckSet)}}&
+    \RaggedRight{"For any state if the retransmission timeout expires on a segment in the retransmission queue, send the segment at the front of the retransmission queue again..."}\\\hline
+    \RaggedRight{$26, 61$}&
+    \RaggedRight{\clientsystem \type{<+>retry\_thresh(SegRstSet)} \serversystem \type{\&retry\_thresh(SegRstSet)}}&
+    \RaggedRight{"When the number of transmissions of the same segment reaches a threshold R2 greater than R1, close the connection."}\\\hline
+    \RaggedRight{$88, 69$}&
+    \RaggedRight{\clientsystem \type{<+>close\_init(Close)} \serversystem \type{<+>fin(SegFinSet)}}&
+    \RaggedRight{"The user initiates by telling the TCP implementation to CLOSE the connection..."}\\\hline
+    \RaggedRight{$8, 29$}&
+    \RaggedRight{\serversystem \type{<+>close\_init(Close)} \clientsystem \type{<+>fin(SegFinSet)}}&
+    \RaggedRight{"The remote TCP endpoint initiates by sending a FIN control signal..."}\\\hline
+    \RaggedRight{$31, 71$}&
+    \RaggedRight{\clientsystem \type{\&fin(SegFinSet)} \serversystem \type{\&fin(SegFinSet)}}&
+    \RaggedRight{"Both users CLOSE simultaneously"}\\\hline
+    \RaggedRight{$71, 85$}&
+    \RaggedRight{\clientuser \type{<+>close(Close).end} \clientsystem \type{\&close(Close)}}&
+    \RaggedRight{"When a connection is closed actively, it MUST linger in the TIME-WAIT state..."}\\\hline
+    \\
+    \caption{\todo{} \label{table:model_rfc_match}}\\
+\end{xltabular}
+
+\subsection{Discussion of how this works together}
+
+\section{Discussion On Limitations Of The Theory}
+
+\todo{
+    \begin{itemize}
+        \item Generally unclear how we should describe "how much data is being sent" - is this the number of send calls or does the message need to be extended to express this?
+        \item There are calculi that do timed and timeouts but these do not have the tooling
+        \item Implementation limitations - heterogeneous channels (whats the overhead?), no variadic generics in Rust, will probably encounter other
+    \end{itemize}
+}
+
+\section{Future Directions}
+
+\todo{
+    \begin{itemize}
+        \item automation
+        \item other properties we may want to parametrise?
+        \item model checker reporting - where is property violated?
+        \item considering other protocols to exploit other theory of STs? - context free, multiplicities?
+    \end{itemize}
+}
 
 \medskip
 \nocite{*}
