@@ -1,204 +1,206 @@
-pub fn generate_imports(scope_block: String) -> Result<String, &'static str> {
-    if !scope_block.is_empty() {
-        return Err("imports should be at the start of a new empty scope block");
-    }
-    let new_scope_block = scope_block + "use std::marker::PhantomData;\n";
-    Ok(new_scope_block)
+use std::{marker::PhantomData, mem::MaybeUninit};
+
+pub trait Action: Send {
+    fn new() -> Self
+    where
+        Self: Sized;
 }
 
-pub fn generate_st_traits(scope_block: String) -> Result<String, &'static str> {
-    let mut new_scope_block = scope_block
-        + "\n"
-        + &format!("pub trait Action {{\n\tfn new() -> Self where Self:Sized;\n}}\n");
-    new_scope_block += "\npub trait Message {}\n";
-    Ok(new_scope_block)
+pub struct ServerSystemClientSystemOfferOne<M, A>
+where
+    M: Message,
+    A: Action,
+{
+    endpoint: MaybeUninit<Box<dyn ChannelRecv<M>>>,
+    phantom: PhantomData<(M, A)>,
 }
 
-pub fn generate_offer(
-    role: &str,
-    scope_block: String,
-    num_choices: u32,
-) -> Result<String, &'static str> {
-    let struct_name = &format!("OfferToRole{}{}Choices", role, num_choices);
-    let mut params = "<".to_owned();
-    for num in 0..num_choices {
-        params += &format!("M{}, ", num);
+impl<M, A> Action for ServerSystemClientSystemOfferOne<M, A>
+where
+    M: Message,
+    A: Action,
+{
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        ServerSystemClientSystemOfferOne {
+            endpoint: MaybeUninit::uninit(),
+            phantom: PhantomData,
+        }
     }
-    for num in 0..num_choices - 1 {
-        params += &format!("A{}, ", num);
-    }
-    params += &format!("A{}>", num_choices - 1);
-    let mut where_clauses = "\nwhere\n".to_owned();
-    for num in 0..num_choices {
-        where_clauses += &format!("\tM{}: Message,\n", num);
-    }
-    for num in 0..num_choices {
-        where_clauses += &format!("\tA{}: Action,\n", num)
-    }
-
-    let mut new_scope_block = scope_block + "\n" + &format!("enum Branchings{} {{\n", struct_name);
-    for num in 0..num_choices {
-        new_scope_block += &format!("\tBranch{},\n", num);
-    }
-    new_scope_block += "}\n";
-    new_scope_block += &format!("\nstruct {}", struct_name);
-    new_scope_block += &params;
-    new_scope_block += &where_clauses;
-    new_scope_block += "{\n\tphantom: PhantomData<(";
-    for num in 0..num_choices {
-        new_scope_block += &format!("M{}, ", num);
-    }
-    for num in 0..num_choices - 1 {
-        new_scope_block += &format!("A{}, ", num);
-    }
-    new_scope_block += &format!("A{}),>\n}}\n", num_choices - 1);
-    new_scope_block += "\nimpl";
-    new_scope_block += &params;
-    new_scope_block += &format!("Action for {}", struct_name);
-    new_scope_block += &params;
-    new_scope_block += &where_clauses;
-    new_scope_block += &format!(
-        "{{\n\tfn new() -> Self {{\n\t\t{} {{\n\t\t\tphantom: PhantomData,\n\t\t}}\n\t}}\n}}\n",
-        struct_name
-    );
-    new_scope_block += "\nimpl";
-    new_scope_block += &params;
-    new_scope_block += &format!("{}", struct_name);
-    new_scope_block += &params;
-    new_scope_block += "\nwhere\n";
-    for num in 0..num_choices {
-        new_scope_block += &format!("\tM{}: Message + 'static,\n", num);
-    }
-    for num in 0..num_choices {
-        new_scope_block += &format!("\tA{}: Action + 'static,\n", num)
-    }
-    new_scope_block += "\n{";
-    new_scope_block += "\n\tpub fn offer(self,";
-    for num in 0..num_choices {
-        new_scope_block += &format!("emitter{}: Box<dyn Fn() -> M{}>,", num, num);
-    }
-    new_scope_block += &format!(
-        "picker: Box<dyn Fn() -> Branchings{}>) -> (Box<dyn Message>, Box<dyn Action>) {{\n",
-        struct_name
-    );
-    let mut branch_match_arms = "".to_owned();
-    for num in 0..num_choices {
-        branch_match_arms += &format!("\t\tBranchings{}::Branch{} => {{\n\t\t\tlet message = emitter{}();\n\t\t\treturn (Box::new(message), Box::new(A{}::new()));\n\t\t}}\n",
-            struct_name, num, num, num);
-    }
-    new_scope_block += "\tlet choice = picker();\n";
-    new_scope_block += "\tmatch choice{\n";
-    new_scope_block += &branch_match_arms;
-    new_scope_block += "\t}\n}\n}";
-    Ok(new_scope_block)
 }
 
-pub fn generate_selection(
-    role: &str,
-    scope_block: String,
-    num_choices: u32,
-) -> Result<String, &'static str> {
-    let struct_name = &format!("SelectFromRole{}{}Choices", role, num_choices);
-    let mut params = "<".to_owned();
-    for num in 0..num_choices {
-        params += &format!("M{}, ", num);
+pub fn server_system_client_system_offer_one<M, A>(
+    o: ServerSystemClientSystemOfferOne<M, A>,
+) -> (M, A)
+where
+    M: Message + 'static,
+    A: Action + 'static,
+{
+    unsafe {
+        let endpoint = o.endpoint.assume_init();
+        (endpoint.recv(), A::new())
     }
-    for num in 0..num_choices - 1 {
-        params += &format!("A{}, ", num);
-    }
-    params += &format!("A{}>", num_choices - 1);
-    let mut where_clauses = "\nwhere\n".to_owned();
-    for num in 0..num_choices {
-        where_clauses += &format!("\tM{}: Message,\n", num);
-    }
-    for num in 0..num_choices {
-        where_clauses += &format!("\tA{}: Action,\n", num)
-    }
-    let mut new_scope_block = scope_block + "\n" + &format!("enum Branchings{} {{\n", struct_name);
-    for num in 0..num_choices {
-        new_scope_block += &format!("\tBranch{},\n", num);
-    }
-    new_scope_block += "}\n";
-    new_scope_block += &format!("\nstruct {}", struct_name);
-    new_scope_block += &params;
-    new_scope_block += &where_clauses;
-    new_scope_block += "{\n\tphantom: PhantomData<(";
-    for num in 0..num_choices {
-        new_scope_block += &format!("M{}, ", num);
-    }
-    for num in 0..num_choices - 1 {
-        new_scope_block += &format!("A{}, ", num);
-    }
-    new_scope_block += &format!("A{}),>\n}}\n", num_choices - 1);
-    new_scope_block += "\nimpl";
-    new_scope_block += &params;
-    new_scope_block += &format!("Action for {}", struct_name);
-    new_scope_block += &params;
-    new_scope_block += &where_clauses;
-    new_scope_block += &format!(
-        "{{\n\tfn new() -> Self {{\n\t\t{} {{\n\t\t\tphantom: PhantomData,\n\t\t}}\n\t}}\n}}\n",
-        struct_name
-    );
-    new_scope_block += "\nimpl";
-    new_scope_block += &params;
-    new_scope_block += &format!("{}", struct_name);
-    new_scope_block += &params;
-    new_scope_block += "\nwhere\n";
-    for num in 0..num_choices {
-        new_scope_block += &format!("\tM{}: Message + 'static,\n", num);
-    }
-    for num in 0..num_choices {
-        new_scope_block += &format!("\tA{}: Action + 'static,\n", num)
-    }
-    new_scope_block += "\n{";
-    new_scope_block += "\n\tpub fn select(self,";
-    for num in 0..num_choices {
-        new_scope_block += &format!("emitter{}: Box<dyn Fn(M{})>, ", num, num);
-    }
-    for num in 0..num_choices {
-        new_scope_block += &format!("message{}: M{}, ", num, num);
-    }
-    new_scope_block += &format!(
-        "picker: Box<dyn Fn() -> Branchings{}>) -> Box<dyn Action> {{\n",
-        struct_name
-    );
-    let mut branch_match_arms = "".to_owned();
-    for num in 0..num_choices {
-        branch_match_arms += &format!("\t\tBranchings{}::Branch{} => {{\n\t\t\temitter{}(message{});\n\t\t\treturn Box::new(A{}::new());\n\t\t}}\n",
-            struct_name, num, num, num, num);
-    }
-    new_scope_block += "\tlet choice = picker();\n";
-    new_scope_block += "\tmatch choice{\n";
-    new_scope_block += &branch_match_arms;
-    new_scope_block += "\t}\n}\n}";
-    Ok(new_scope_block)
 }
 
-pub fn generate_end(scope_block: String) -> Result<String, &'static str> {
-    let new_scope_block = scope_block
-        + "\n"
-        + &format!("struct End {{}}\n")
-        + "\n"
-        + &format!("impl Action for End {{\n\tfn new() -> Self {{\n\t\tEnd {{}}\n\t}}\n}}\n");
-    Ok(new_scope_block)
+impl<M, A> ChannelAssociateRecv<M> for ServerSystemClientSystemOfferOne<M, A>
+where
+    M: Message,
+    A: Action,
+{
+    fn associate_channel(&mut self, c: Box<dyn ChannelRecv<M>>) {
+        self.endpoint = MaybeUninit::new(c);
+    }
+}
+
+pub struct ClientSystemServerSystemSelectOne<M, A>
+where
+    M: Message,
+    A: Action,
+{
+    endpoint: MaybeUninit<Box<dyn ChannelSend<M>>>,
+    phantom: PhantomData<(M, A)>,
+}
+
+impl<M, A> Action for ClientSystemServerSystemSelectOne<M, A>
+where
+    M: Message,
+    A: Action,
+{
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        ClientSystemServerSystemSelectOne {
+            endpoint: MaybeUninit::uninit(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+pub fn client_system_server_system_select_one<M, A>(
+    o: ClientSystemServerSystemSelectOne<M, A>,
+    message: M,
+) -> A
+where
+    M: Message + 'static,
+    A: Action + 'static,
+{
+    unsafe {
+        let endpoint = o.endpoint.assume_init();
+        endpoint.send(message);
+    }
+    A::new()
+}
+
+impl<M, A> ChannelAssociateSend<M> for ClientSystemServerSystemSelectOne<M, A>
+where
+    M: Message,
+    A: Action,
+{
+    fn associate_channel(&mut self, c: Box<dyn ChannelSend<M>>) {
+        self.endpoint = MaybeUninit::new(c);
+    }
+}
+
+pub trait Choice {}
+
+pub trait ChannelRecv<M>: Send {
+    fn recv(&self) -> M;
+}
+
+pub trait ChannelSend<M>: Send {
+    fn send(&self, message: M);
+}
+
+pub trait ChannelAssociateRecv<M> {
+    fn associate_channel(&mut self, c: Box<dyn ChannelRecv<M>>);
+}
+
+pub trait ChannelAssociateSend<M> {
+    fn associate_channel(&mut self, c: Box<dyn ChannelSend<M>>);
+}
+
+pub trait Message: Send {}
+
+pub struct End {}
+
+impl Action for End {
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        End {}
+    }
+}
+
+impl End {
+    pub fn close(&self) {
+        drop(self)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::thread;
+
+    use crossbeam_channel::{unbounded, Receiver, Sender};
+
     use crate::{
-        generate_end, generate_imports, generate_offer, generate_selection, generate_st_traits,
+        client_system_server_system_select_one, server_system_client_system_offer_one, Action,
+        ChannelAssociateRecv, ChannelAssociateSend, ChannelRecv, ChannelSend,
+        ClientSystemServerSystemSelectOne, End, Message, ServerSystemClientSystemOfferOne,
     };
 
+    impl<M> ChannelSend<M> for Sender<M>
+    where
+        M: Message + Send,
+    {
+        fn send(&self, message: M) {
+            self.send(message).unwrap();
+        }
+    }
+
+    impl<M> ChannelRecv<M> for Receiver<M>
+    where
+        M: Message + Send,
+    {
+        fn recv(&self) -> M {
+            self.recv().unwrap()
+        }
+    }
+
+    impl Message for u32 {}
+
     #[test]
-    fn it_works() {
-        let scope = "".to_owned();
-        let scope = generate_imports(scope).unwrap();
-        let scope = generate_st_traits(scope).unwrap();
-        let scope = generate_offer("A", scope, 3).unwrap();
-        let scope = generate_selection("A", scope, 3).unwrap();
-        let scope = generate_end(scope).unwrap();
-        eprintln!("{}", scope);
+    fn simple_protocol() {
+        type LocalViewA =
+            ServerSystemClientSystemOfferOne<u32, ServerSystemClientSystemOfferOne<u32, End>>;
+        type LocalViewB =
+            ClientSystemServerSystemSelectOne<u32, ClientSystemServerSystemSelectOne<u32, End>>;
+        let mut a = LocalViewA::new();
+        let mut b = LocalViewB::new();
+        let channels_a = unbounded();
+        a.associate_channel(Box::new(channels_a.1.clone()));
+        b.associate_channel(Box::new(channels_a.0.clone()));
+
+        let thread_a = thread::spawn(move || {
+            let (val, mut cont) = server_system_client_system_offer_one(a);
+            assert_eq!(val, 10);
+            cont.associate_channel(Box::new(channels_a.1.clone()));
+            let (val, cont) = server_system_client_system_offer_one(cont);
+            assert_eq!(val, 15);
+            cont.close();
+        });
+
+        let thread_b = thread::spawn(move || {
+            let mut cont = client_system_server_system_select_one(b, 10);
+            cont.associate_channel(Box::new(channels_a.0.clone()));
+            let cont = client_system_server_system_select_one(cont, 15);
+            cont.close();
+        });
+        thread_a.join().unwrap();
+        thread_b.join().unwrap();
     }
 }
-
-mod example;
