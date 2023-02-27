@@ -194,16 +194,20 @@ mod tests {
 
     #[test]
     fn simple_protocol() {
-        type LocalViewA = OfferOne<RoleB, SegAckSet, OfferOne<RoleB, SegSynAckSet, End>>;
-        type LocalViewB = SelectOne<RoleA, TcpMessage, SelectOne<RoleA, TcpMessage, End>>;
-        let a = LocalViewA::new();
-        let b = LocalViewB::new();
+        // Create a channel that connects [`RoleB`] to [`RoleA`]
+        // This channel will send from [`RoleB`] to [`RoleA`]
+        // and recv from [`RoleB`] on [`RoleA`].
         let channels_a = unbounded();
         let channel = Arc::new(RoleChannel::<RoleB, RoleA, TcpMessage> {
             send: channels_a.0,
             recv: channels_a.1,
             phantom: PhantomData::default(),
         });
+        // Declare the Session Type for the participants
+        type LocalViewA = OfferOne<RoleB, SegAckSet, OfferOne<RoleB, SegSynAckSet, End>>;
+        type LocalViewB = SelectOne<RoleA, TcpMessage, SelectOne<RoleA, TcpMessage, End>>;
+        let a = LocalViewA::new();
+        let b = LocalViewB::new();
 
         thread::scope(|scope| {
             let thread_a = scope.spawn(|| {
