@@ -1,4 +1,5 @@
-use std::{marker::PhantomData, mem::MaybeUninit};
+use crossbeam_channel::{Receiver, Sender};
+use std::marker::PhantomData;
 
 pub trait Action: Send {
     fn new() -> Self
@@ -6,120 +7,95 @@ pub trait Action: Send {
         Self: Sized;
 }
 
-pub struct ServerSystemClientSystemOfferOne<M, A>
+pub trait Role {}
+
+pub struct OfferOne<R, M, A>
 where
     M: Message,
     A: Action,
+    R: Role,
 {
-    endpoint: MaybeUninit<Box<dyn ChannelRecv<M>>>,
-    phantom: PhantomData<(M, A)>,
+    phantom: PhantomData<(R, M, A)>,
 }
 
-impl<M, A> Action for ServerSystemClientSystemOfferOne<M, A>
+impl<R, M, A> Action for OfferOne<R, M, A>
 where
     M: Message,
     A: Action,
+    R: Role + std::marker::Send,
 {
     fn new() -> Self
     where
         Self: Sized,
     {
-        ServerSystemClientSystemOfferOne {
-            endpoint: MaybeUninit::uninit(),
+        OfferOne {
             phantom: PhantomData,
         }
     }
 }
 
-pub fn server_system_client_system_offer_one<M, A>(
-    o: ServerSystemClientSystemOfferOne<M, A>,
+pub fn offer_one<R1, R2, M, MS, A>(
+    _o: OfferOne<R1, MS, A>,
+    channel: &RoleChannel<R1, R2, M>,
 ) -> (M, A)
 where
     M: Message + 'static,
+    MS: Message,
     A: Action + 'static,
+    R1: Role,
+    R2: Role,
 {
-    unsafe {
-        let endpoint = o.endpoint.assume_init();
-        (endpoint.recv(), A::new())
-    }
+    (channel.recv.recv().unwrap(), A::new())
 }
 
-impl<M, A> ChannelAssociateRecv<M> for ServerSystemClientSystemOfferOne<M, A>
+pub struct SelectOne<R, M, A>
 where
     M: Message,
     A: Action,
+    R: Role,
 {
-    fn associate_channel(&mut self, c: Box<dyn ChannelRecv<M>>) {
-        self.endpoint = MaybeUninit::new(c);
-    }
+    phantom: PhantomData<(R, M, A)>,
 }
 
-pub struct ClientSystemServerSystemSelectOne<M, A>
+impl<R, M, A> Action for SelectOne<R, M, A>
 where
     M: Message,
     A: Action,
-{
-    endpoint: MaybeUninit<Box<dyn ChannelSend<M>>>,
-    phantom: PhantomData<(M, A)>,
-}
-
-impl<M, A> Action for ClientSystemServerSystemSelectOne<M, A>
-where
-    M: Message,
-    A: Action,
+    R: Role + std::marker::Send,
 {
     fn new() -> Self
     where
         Self: Sized,
     {
-        ClientSystemServerSystemSelectOne {
-            endpoint: MaybeUninit::uninit(),
+        SelectOne {
             phantom: PhantomData,
         }
     }
 }
 
-pub fn client_system_server_system_select_one<M, A>(
-    o: ClientSystemServerSystemSelectOne<M, A>,
+pub fn select_one<R1, R2, M, A>(
+    _o: SelectOne<R2, M, A>,
     message: M,
+    channel: &RoleChannel<R1, R2, M>,
 ) -> A
 where
     M: Message + 'static,
     A: Action + 'static,
+    R1: Role,
+    R2: Role,
 {
-    unsafe {
-        let endpoint = o.endpoint.assume_init();
-        endpoint.send(message);
-    }
+    channel.send.send(message).unwrap();
     A::new()
-}
-
-impl<M, A> ChannelAssociateSend<M> for ClientSystemServerSystemSelectOne<M, A>
-where
-    M: Message,
-    A: Action,
-{
-    fn associate_channel(&mut self, c: Box<dyn ChannelSend<M>>) {
-        self.endpoint = MaybeUninit::new(c);
-    }
 }
 
 pub trait Choice {}
 
-pub trait ChannelRecv<M>: Send {
+pub trait ChannelRecv<R: Role, M>: Send {
     fn recv(&self) -> M;
 }
 
-pub trait ChannelSend<M>: Send {
+pub trait ChannelSend<R: Role, M>: Send {
     fn send(&self, message: M);
-}
-
-pub trait ChannelAssociateRecv<M> {
-    fn associate_channel(&mut self, c: Box<dyn ChannelRecv<M>>);
-}
-
-pub trait ChannelAssociateSend<M> {
-    fn associate_channel(&mut self, c: Box<dyn ChannelSend<M>>);
 }
 
 pub trait Message: Send {}
@@ -141,66 +117,113 @@ impl End {
     }
 }
 
+#[derive(Clone)]
+pub struct RoleChannel<R1: Role, R2: Role, M: Message> {
+    send: Sender<M>,
+    recv: Receiver<M>,
+    phantom: PhantomData<(R1, R2)>,
+}
+
 #[cfg(test)]
 mod tests {
-    use std::thread;
+    use std::{marker::PhantomData, sync::Arc, thread};
 
     use crossbeam_channel::{unbounded, Receiver, Sender};
 
     use crate::{
-        client_system_server_system_select_one, server_system_client_system_offer_one, Action,
-        ChannelAssociateRecv, ChannelAssociateSend, ChannelRecv, ChannelSend,
-        ClientSystemServerSystemSelectOne, End, Message, ServerSystemClientSystemOfferOne,
+        offer_one, select_one, Action, ChannelRecv, ChannelSend, End, Message, OfferOne, Role,
+        RoleChannel, SelectOne,
     };
 
-    impl<M> ChannelSend<M> for Sender<M>
+    impl<R, M> ChannelSend<R, M> for Sender<M>
     where
         M: Message + Send,
+        R: Role,
     {
         fn send(&self, message: M) {
             self.send(message).unwrap();
         }
     }
 
-    impl<M> ChannelRecv<M> for Receiver<M>
+    impl<R, M> ChannelRecv<R, M> for Receiver<M>
     where
         M: Message + Send,
+        R: Role,
     {
         fn recv(&self) -> M {
             self.recv().unwrap()
         }
     }
 
-    impl Message for u32 {}
+    #[derive(Clone)]
+    struct RoleA {}
+    impl Role for RoleA {}
+    #[derive(Clone)]
+    struct RoleB {}
+    impl Role for RoleB {}
+
+    struct SegAckSet {}
+    impl Message for SegAckSet {}
+    struct SegSynAckSet {}
+    impl Message for SegSynAckSet {}
+
+    enum TcpMessage {
+        SegAckSet(SegAckSet),
+        SegSynAckSet(SegSynAckSet),
+    }
+
+    impl TcpMessage {
+        /// Returns `true` if the tcp message is [`SegAckSet`].
+        ///
+        /// [`SegAckSet`]: TcpMessage::SegAckSet
+        #[must_use]
+        fn is_seg_ack_set(&self) -> bool {
+            matches!(self, Self::SegAckSet(..))
+        }
+
+        /// Returns `true` if the tcp message is [`SegSynAckSet`].
+        ///
+        /// [`SegSynAckSet`]: TcpMessage::SegSynAckSet
+        #[must_use]
+        fn is_seg_syn_ack_set(&self) -> bool {
+            matches!(self, Self::SegSynAckSet(..))
+        }
+    }
+
+    impl Message for TcpMessage {}
 
     #[test]
     fn simple_protocol() {
-        type LocalViewA =
-            ServerSystemClientSystemOfferOne<u32, ServerSystemClientSystemOfferOne<u32, End>>;
-        type LocalViewB =
-            ClientSystemServerSystemSelectOne<u32, ClientSystemServerSystemSelectOne<u32, End>>;
-        let mut a = LocalViewA::new();
-        let mut b = LocalViewB::new();
+        type LocalViewA = OfferOne<RoleB, SegAckSet, OfferOne<RoleB, SegSynAckSet, End>>;
+        type LocalViewB = SelectOne<RoleA, TcpMessage, SelectOne<RoleA, TcpMessage, End>>;
+        let a = LocalViewA::new();
+        let b = LocalViewB::new();
         let channels_a = unbounded();
-        a.associate_channel(Box::new(channels_a.1.clone()));
-        b.associate_channel(Box::new(channels_a.0.clone()));
-
-        let thread_a = thread::spawn(move || {
-            let (val, mut cont) = server_system_client_system_offer_one(a);
-            assert_eq!(val, 10);
-            cont.associate_channel(Box::new(channels_a.1.clone()));
-            let (val, cont) = server_system_client_system_offer_one(cont);
-            assert_eq!(val, 15);
-            cont.close();
+        let channel = Arc::new(RoleChannel::<RoleB, RoleA, TcpMessage> {
+            send: channels_a.0,
+            recv: channels_a.1,
+            phantom: PhantomData::default(),
         });
 
-        let thread_b = thread::spawn(move || {
-            let mut cont = client_system_server_system_select_one(b, 10);
-            cont.associate_channel(Box::new(channels_a.0.clone()));
-            let cont = client_system_server_system_select_one(cont, 15);
-            cont.close();
+        thread::scope(|scope| {
+            let thread_a = scope.spawn(|| {
+                let (val, cont) = offer_one(a, &channel.clone());
+                assert!(val.is_seg_ack_set());
+                let (val, cont) = offer_one(cont, &channel.clone());
+                assert!(val.is_seg_syn_ack_set());
+                cont.close();
+            });
+            let thread_b = scope.spawn(|| {
+                let cont = select_one(b, TcpMessage::SegAckSet(SegAckSet {}), &channel.clone());
+                let cont = select_one(
+                    cont,
+                    TcpMessage::SegSynAckSet(SegSynAckSet {}),
+                    &channel.clone(),
+                );
+                cont.close();
+            });
+            thread_a.join().unwrap();
+            thread_b.join().unwrap();
         });
-        thread_a.join().unwrap();
-        thread_b.join().unwrap();
     }
 }
