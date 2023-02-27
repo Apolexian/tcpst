@@ -90,49 +90,8 @@
 Session types are a behavioural typing discipline that were first introduced by Honda~\cite{H93} as a typed formalism for concurrency.
 Session types represent a series of actions that each have a type and a direction of data exchange.
 Importantly, session types dictate the protocols that the channels must use to communicate.
-Consider an example where a client \textbf{C} sends two strings to a server \textbf{S} representing the username and password of the user needed for authentication and expects a boolean, confirming if the user is to be authenticated and then terminates:
-
-\begin{equation*}
-    \textbf{C} \; = \; \type{!String.!String.?Boolean.end}
-\end{equation*}
-
-This session type describes that \textbf{C}, sends (\type{!}) two strings and then receives (\type{?}) a boolean and then terminates (\type{end}). From the perspective of the server, we have the \textit{dual} session type:
-
-\begin{equation*}
-    \textbf{S} \; = \; \type{?String.?String.!Boolean.end}
-\end{equation*}
-
-We can see that the server cannot proceed in a way that would be incompatible with the client. This is guaranteed by the notion of \textit{duality}, which means that the sending and receiving sides have consistent typing.
-For example, when \textbf{C} sends a string, \textbf{S} expects to receive a string.
-
-We can further understand the importance of duality in a slightly more complex example. Consider now that client \textbf{C} can first choose an authentication method, credentials or token, provide the chosen method and terminate, while the server \textbf{S} will offer two authentication methods and then proceed accordingly depending on the method chosen by the client and terminate:
-\begin{align*}
-    \begin{split}
-        \textbf{C} \; = \; \oplus \;\{\; &\textit{cred}: \type{!String.!String.?Boolean.end}, \\ & \textit{token}: \type {!String.?Boolean.end} \;\}\;
-    \end{split}
-\end{align*}
-\begin{align*}
-    \begin{split}
-       \textbf{S} \; = \; \& \;\{\; &\textit{cred}: \type{?String.?String.!Boolean.end}, \\ & \textit{token}: \type {?String.!Boolean.end} \;\}\;
-    \end{split}
-\end{align*}
-We now have a session type where the client chooses (\type{$\oplus$}) one of the possible branches that the server offers (\type{\&}), which is represented via the constructs of \textit{selection} and \textit{branching}. Due to the duality concept, the client can't select an authentication method not provided by the server. Hence, we can see how duality ensures \textit{communication safety} by ensuring the compatibility of session types.
-
-Having defined what is meant by session types, it is important to note that the examples provided used \textit{binary session types}; that is, all communication is handled on one channel by two participants. 
-To model more complex protocols where two or more participants interact, \textit{multiparty session types}~\cite{HYC16} (MPST) can be used. 
-In classic MPST theory, we define a \textit{global type} that describes the communication of all participants and then \textit{project} this into \textit{local session types}, which represent the communication from the viewpoint of each participant.
-While the classic MPST theory gives us a global view of communication, it is also overly restrictive in the processes that can be typed due to the consistency restriction.
-In this work we use the more general multiparty session type theory (LM) presented by Scalas and Yoshida~\cite{SY19}.
-Unlike the classic theory, LM does not base itself on the concepts of global types and duality.
-This decoupling from binary session type theory makes the LM calculus more general.
-
-The LM view of multiparty session types is based on the concept of a weak typing context \textit{safety invariant}.
-A LM type system is parametric on the safety invariant, that is, by changing the parameter we can control what processes are typed, based on the properties that we want.
-The weakest of the invariants is simply safety.
-The safe invariant ensures that we have corresponding branches for selections, that recursive unfoldings are safe and that reductions are also safe if the context being reduced is safe.
-In order to be typeable under any LM type system a protocol must be at least safe.
-The authors present several typing context properties centered around deadlock freedom and liveness.
-An example of a protocol in LM looks like the following:
+To model more protocols where two or more participants interact, \textit{multiparty session types}~\cite{SY19} (MPST) can be used. 
+It is easiest to understand MPST from n example of a protocol:
 
 \begin{figure}[H]
     \centering
@@ -147,8 +106,12 @@ $
 
 In this typing context we have a communication between three participants: \type{a}, \type{b} and \type{c}.
 Each participant has a local view of their communication chain, denoted by the \ensuremath{s[role]} syntax.
-Similarly, each action is annotated with the participant that the action is directed towards.
+We use \ensuremath{\oplus} and \ensuremath{\with} to denote select and offer respectively.
+Intuitively, selection is a sending action between one or more choices.
+Similarly, offer is a receiving action between one or more choices.
 We use \ensuremath{l_{i \in I}} to denote labels and the type between brackets denotes the message type.
+Each action is also annotated with the participant that the action is directed towards.
+So, from \type{b\ensuremath{\with}\textit{l1}(int)} we know that we are going to receive a message from participant \type{b} on label \type{l1} of type \type{int}.
 Unlike the previous binary session type example we use \type{\ensuremath{\oplus}} to denote sending and \type{\ensuremath{\with}} to denote receiving.
 This is a purely syntactical choice - sending is a case of selection and receiving is a case of branching where each only have one option.
 
