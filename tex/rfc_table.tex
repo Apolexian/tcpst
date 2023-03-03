@@ -1,0 +1,143 @@
+\newcolumntype{b}{X}
+\newcolumntype{s}{>{\hsize=.55\hsize}X}
+\newcolumntype{a}{>{\hsize=.15\hsize}X}
+\newcolumntype{f}{>{\hsize=.3\hsize}X}
+\newcolumntype{d}{>{\hsize=.3\hsize}X}
+\newcolumntype{c}{>{\hsize=.15\hsize}X}
+\newcolumntype{v}{>{\hsize=.25\hsize}X}
+
+\newcommand{\rfcsectionlink}[1]{https://datatracker.ietf.org/doc/html/rfc9293\#{#1}}
+\newcommand{\rfcoverviewtablerow}[5]{
+    \RaggedRight{\lowercase{\href{\rfcsectionlink{#1}}}{#1}} &
+    \RaggedRight{#2} &
+    \Centering{#3} &
+    \Centering{#4} &
+    \Centering{#5}\\\hline
+}
+
+\newcommand{\cmark}{\ding{51}}
+\newcommand{\xmark}{\ding{55}}
+
+\begin{xltabular}{\textwidth}{dvccc}
+    \caption{\todo{} \label{table:rfc_overview}}\\
+    \hline
+    RFC Section & Feature  & Modellable & Not Modellable & Outside Of Scope\\\hline
+    \rfcoverviewtablerow{Section-3.1}{Header Format}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.2}{Specific Options Definitions}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.3.1}{Connection State Variables}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3-3.2}{State Machine Overview}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.4-3}{Segment Acceptability Tests}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.4.1}{Initial Sequence Number}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.4.2}{Quiet Time}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.4.3}{Quiet Time}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.5-3}{Simplest 3WHS}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.5-7}{Simultaneous initiation}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.5-11}{Recover from Old Duplicate SYN}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.5.1-3}{Half-Open Connection Discovery}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.5.1-6}{Active Side Causes Half-Open Connection Discovery}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.5.1-8}{Old Duplicate SYN Initiates a Reset on Two Passive Sockets}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.5.2-4.1.1}{Reset on non-existing connection}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.5.2-4.2.1}{Reset in any non-synchronized state}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.5.2-4.3.1}{Reset in any synchronized state}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.5.3-1}{Reset validation}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.5.3-2}{Continuations based on reset validation}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.5.3-3}{Data carrying reset segment}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.6-3.1}{User initiates close}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.6-3.2}{Remote initiates close}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.6-3.3}{Simultaneous close}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.6.1-2}{Half-duplex close sequence}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.6.1-3}{Linger in TIME-WAIT for 2xMSL}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.6.1-3}{Reopen directly from TIME-WAIT}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.6.1-5}{Reducing the TIME-WAIT State}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.7}{Segmentation}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.7.1}{Maximum Segment Size Option}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.7.2}{Path MTU Discovery}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.7.3}{Interfaces With Variable MTU Values}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.7.4}{Nagle Algorithm}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.7.5}{IPv6 Jumbograms}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.8.1}{Retransmission Timeout}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.8.2}{TCP Congestion Control}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.8.3-2.2}{Pass negative advice to IP layer}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.8.3-2.3}{Close connection when threshold exceeded}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.8.3-2.5}{Inform application of delivery problem}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.8.4-1}{Set state to idle}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.8.4-2}{Send Keep-alives}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.8.4-3}{Decide When To Send Keep-alives}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.8.5}{Urgent Information}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.8.6}{Managing The Window}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.8.6.1}{Zero-Window Probing}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.8.6.2}{SWS}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.8.6.3}{Delayed Acks}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.9.1.1-2}{Passive Open}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.1-5}{Multiple Concurrent Connections}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.9.1.1-8}{Verify diffserv or security/compartment}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.9.1.1-14}{Active Open}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.1-15}{Multihomed host OPEN}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.9.1.1-17}{Reject invalid remote IP address}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.9.1.2-2}{SEND first}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.2-3}{PUSH flags}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.9.1.2-9}{Urgent data}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.9.1.2-10}{Send to implied remote socket}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.2-11}{STATUS call}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.2-15}{Return buffer address along with coded response}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.9.1.3-2}{Unauthorized error}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.3-3}{Queue several receives}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.9.1.3-4}{Pass received PSH bit}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.3-5}{Fill buffer}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.9.1.3-6}{Urgent data}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.9.1.4-2}{Connection not opened error}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.4-2}{Not authorised error}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.4-2}{Outstanding SENDs are transmitted}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.9.1.4-2}{Closing TCP peer gives up}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.9.1.4-4}{Error when reopen attempt before TCP peer replies}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.5}{STATUS call}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.6}{ABORT call}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.7}{FLUSH call}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.9.1.8}{Report soft TCP errors}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.8-5}{Disable error reporting}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.9.1.9}{Set Differentiated Services Field}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.9.2}{Set Differentiated Services Field}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.10.1-2.1}{OPEN Call}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.2-2.1}{Connection Illegal Error}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.2-4.1}{Send a SYN segment}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.2-4.1}{Urgent bit}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.2-4.1}{Queue data for transmission}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.2-10.1}{Segmentize the buffer and send it with a piggybacked acknowledgement}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.2-10.2}{Urgent flag}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.3-2.1}{Connection illegal error}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.3-2.2}{Connection does not exist error}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.3-10.1}{Queue request if insufficient incoming segments are queued}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.3-10.1}{Insufficient resources error}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.3-10.2}{Reassemble queued incoming segments}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.3-10.3}{Notify the user of the presence of urgent data}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.3-10.4}{Notify when TCP endpoint takes responsibility for delivering data to the user}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.3-12.1}{Satisfied RECEIVEs}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.3-12.1}{Error: connection closing}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.4-2.1}{Error: connection illegal for this process}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.4-2.1}{Error: connection does not exist}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.4-4.1}{Error: closing}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.4-6.1}{Error: closing}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.4-8.1}{Form a FIN segment and send it}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.4-10.1}{Queue until all preceding SENDs have been segmentized, then form a FIN}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.4-13.1}{Error: connection closing}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.4-13.1}{An "ok" if a second FIN is not emitted}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.4-15.1}{Queue until all preceding SENDs segmentized}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.4-19.1}{Error: connection closing}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.5-2.1}{Error: connection illegal for this process}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.5-2.2}{Error: connection does not exist}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.5-4.1}{Outstanding RECEIVEs returned with "error: connection reset"}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.5-6.1}{Queued SENDs and RECEIVEs given "connection reset" notification}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.5-16.1}{Respond with "ok" and delete the TCB}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.6-2.1}{Error: connection does not exist}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.6}{Various status calls}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.7.1-2.1}{Discard data}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.10.7.2}{LISTEN STATE calls}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.7.3}{Blind reset attack mitigation}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.10.7.3}{Various acceptability tests}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.10.7.3}{Don't send data on SYN segments}{\xmark}{}{}
+    \rfcoverviewtablerow{Section-3.10.7.4}{Acceptability tests}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.10.7.2}{Aggregate ACK segments}{}{}{\xmark}
+    \rfcoverviewtablerow{Section-3.10.8}{If user timeout expires flush all queues}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.8}{Requeue timeout segment on the retransmission queue}{}{\xmark}{}
+    \rfcoverviewtablerow{Section-3.10.8}{If the time-wait timeout expires on a connection, delete the TCB}{}{\xmark}{}
+\end{xltabular}

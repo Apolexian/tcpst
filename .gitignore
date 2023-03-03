@@ -1,6 +1,10 @@
 mpstrust/target
 mpstrust/Cargo.lock
 .vscode/
+tex/conference_101719.pdf
+tex/conference_101719.tex
+tex/fig1.png
+tex/IEEEtran_HOWTO.pdf
 
 ## Core latex/pdflatex auxiliary files:
 *.aux

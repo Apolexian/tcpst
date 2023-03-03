@@ -1,0 +1,102 @@
+\subsection{A Session Typed View Of TCP}
+
+\begin{figure}[H]
+    \centering
+        $
+        \begin{array}{rcll}
+        \ensuremath{c} & \Coloneqq & \ensuremath{s[r] \colon S} \\
+        \ensuremath{S}
+            & \Coloneqq & \ensuremath{r \oplus \{l_i(P_i).S_i\}_{i \in I}}
+            \sep        \ensuremath{r \with \{l_i(P_i).S_i\}_{i \in I}}
+            \sep        \ensuremath{\mu(t).(S)}
+            \sep        \ensuremath{t}
+            \sep        \ensuremath{end} \\
+        \ensuremath{P}
+            & \Coloneqq & \ensuremath{\{TcpPayloadTypes\}}
+        \end{array}
+        $
+    \caption{The syntax of session type contexts used to create the protocol models in \ensuremath{mpstk}.} \label{fig:syntax}
+\end{figure}
+
+The syntax for the session type language that the protocols are written in is presented in Figure~\ref{fig:syntax}.
+We do not omit this as the syntax of the language used for \ensuremath{mpstk} differs to that of LM.
+Additionally, we only need to consider a simplified subset of the calculus.
+Note that \ensuremath{P} can not be an instance of \ensuremath{S}, that is, we do not consider sending sessions across channels.
+Although this is standard to the theory of \ensuremath{\pi}-calculus, the presented network protocols would not benefit from such a mechanism.
+Hence, the payload types are restricted to the defined TCP payload types.
+
+\subsection{Extracting the model}
+
+The breakdown of which TCP features we are able to model in our chosen MPST theory is given in Table~\ref{table:rfc_overview}.
+Note that "Outside Of Scope" means that the specific part of the protocol does not pertain to communication.
+Many of these features involve changing state variables at runtime, performing dynamic assertions on parsed data, and taking actions that do not involve other participants.
+We may or may not be able to express these features as separate algorithms using session type theory or other formal mechanisms, but they will not be considered in this work as they do not directly involve the TCP state machine.
+
+\todo{Discussion of what is modellable}
+\todo{Discussion of what is not modellable and why}
+
+As previously discussed, we opt to use multiparty session types to model the TCP protocol.
+Multiparty communication allows us to express TCP closer to its RFC description as opposed to the usual binary session type view of the protocol.
+While the binary session type view treats server and client as the only two participants, we explicitly model the communication between the system implementation of TCP and the userspace.
+\todo{Check if this is the first ST model that considers TCP to be multiparty?}
+Hence, we have extracted the following roles - the userspace of the server, the server side implementation of TCP, the client side implementation of TCP and the userspace of the client.
+The server side of the communication is described by the {\serveruser} and {\serversystem} participants and correspondingly the client side  consists of the {\clientuser} and the {\clientsystem}.
+These four roles capture the majority of the state machine described in the RFC, but it is possible to add more roles to explicitly express some TCP features, for example, the protocol's error reporting to the IP layer.
+While this would be more accurate, it would also make the model more complex and was deemed out of scope for the initial session typed view of the TCP state machine.
+
+Our model expresses the initial call to open and create a TCB, connection establishment, the main data communication loop, retransmission and connection closing.
+The matchings from the RFC to the corresponding parts of the model can be found in Table~\ref{table:model_rfc_match}.
+Note that for each RFC exert we do not show every place where we model this behaviour.
+Rather we show an example of it and the corresponding line number to show how this can be expressed.
+
+In the initial OPEN call we assume that one side is the server and the other side is a client.
+Hence, we only model the case where the server side requests a passive-open and the client side requests an active-open.
+It is also possible to express more fine-grained cases, for example, having an explicit type for each parameter needed for the call and handling each case.
+Adding these is trivial if needed and is analogous to adding more match cases and does not change the flow of communication.
+
+After the TCB is created, the connection establishment phase begins.
+We model this through the basic three-way handshake.
+It is also possible to express the other cases for connection establishment, such as simultaneous open.
+Again, this is trivial to add and is omitted for readability.
+We do, however, opt to explicitly type the connection establishment packets as \textit{SegSynAckSet}, \textit{SegAckSet} and \textit{SegSynSet} instead of just \textit{Seg}.
+This allows us to demonstrate the assurances that session types can provide.
+By extracting these flag combinations as types, we enforce that during connection establishment we must exhibit the correct pattern.
+That is, the server must receive a segment with the SYN flag sent and respond with a segment with the SYN-ACK flags set.
+Hence, we do not need to explicitly model the client sending unwanted segments and the server then handling these.
+This is because a TCP implementation written using an implementation of session types would not be able to send segments with wrong flags set, assuming a well behaved parser.
+So, by being explicit in our types we have more control over the segments being sent which gives us flexibility in how we want to model the protocol.
+We can choose to be more general and handle error cases explicitly, or we can be more constrained in what we are allowed to send by having narrower types and disallow such edge-cases from occurring.
+
+Once the handshake is complete we initiate the data communication loop by instantiating a recursive variable on each side.
+On the server side, the recursive block accepts a segment from the client and in the case of an accepted sequence number sends that data to its user.
+The server then reads from the user and sends a segment with data to the client.
+
+The user can also respond with a CLOSE call, starting the connection closing phase of the protocol.
+We model the cases where either server or client initiate the closing handshake by sending a segment with the FIN flag set.
+Note that due to the underlying language not having timeouts we do not explicitly model the TIME-AWAIT state.
+Instead this is an implied external transition, the server sends the user a CLOSE once the timeout fires outside the session typed state machine.
+There are languages that use timeouts in session types~\cite{todo} but currently there are no implementations nor tooling based on this theory that could be used for this work.
+
+During data communication it is also possible that we receive an unacceptable segment, in which case retransmission occurs.
+In the retransmission cases, the server either successfully receives an acknowledgement for the retransmitted segment or the retry threshold is exceeded and the connection is aborted.
+We have not put retransmission everywhere where it is possible as this would make the model unreadable, while not showcasing any other modelling techniques.
+It is technically possible for retransmission to occur at any stage of the communication after the very first segment is sent.
+Hence, we would need to copy the retransmission block after every communication.
+This is further noted in our discussion on the usability of session types in Section~\ref{todo}.
+
+On the client side, data communication, connection closing and retransmission are analogous.
+
+\todo{What have we not modelled that is important for TCP? \\
+Possibly:\\
+\begin{itemize}
+    \item Dynamically setting RTO
+    \item Reset generation
+    \item Sending reset (trivial to add but not an interesting case)
+    \item Keep-alives
+    \item Retransmission queue is not explicit since this is not part of the communication between roles (could be expressed as another role?)
+    \item Communicating errors to IP layer - new role?
+    \item Congestion control external state machine - could be yet another role?
+    \item Zero-Window Probing - implicit in data communication, could be made more explicit via message types
+    \item Delayed Acknowledgments - we dont have segmentation semantics, its implied that one message = one segment sent but we cant reason about "we sent X segments, now send an ACK", I think this can be done with context free STs?
+\end{itemize}
+}

@@ -1,0 +1,65 @@
+\subsection{Session Types}
+
+Session types are a behavioural typing discipline that were first introduced by Honda~\cite{H93} as a typed formalism for concurrency.
+Session types represent a series of actions that each have a type and a direction of data exchange and can be used to formalise and verify message-passing based programs.
+Importantly, session types dictate the protocols that the channels must use to communicate.
+Hence, we can use the theory of session types to statically enforce that a protocol adheres to its type.
+As we will see later, using session types we can also guarantee that this protocol will have some desirable behaviours such as safety or deadlock freedom.
+To express protocols where two or more participants interact, \textit{multiparty session types}~\cite{SY19} (MPST) can be used. 
+
+It is easiest to understand MPST by looking at an example of a protocol:
+
+\begin{equation}
+    \label{eqn:mpst_example}
+    \begin{array}{rl}
+        \textbf{\ensuremath{\Gamma}} \; = \;  & s[a]:b\ensuremath{\with}\textit{l1}(int).c\ensuremath{\oplus}\textit{l3}(int).end, \cr
+        & s[b]:c\ensuremath{\with}\textit{l2}(int).a\ensuremath{\oplus}l1(int), \cr
+        & s[c]:a\ensuremath{\with}\textit{l3}(int).b\ensuremath{\oplus}l2(int).end
+    \end{array}
+\end{equation}
+
+In this typing context we can see communication occur between three participants: \textbf{a}, \textbf{b} and \textbf{c}.
+Each participant has a local view of their communication chain, denoted by the \ensuremath{\textbf{s[role]}} syntax.
+The local view of each is created by chaining session types that make up the overall session type of that participant.
+We use \ensuremath{\oplus} and \ensuremath{\with} to denote select and offer respectively.
+Intuitively, selection is a sending action between one or more choices.
+Similarly, offer is a receiving action between one or more choices.
+We use \ensuremath{l_{i \in I}} to denote labels and the type between brackets denotes the message type.
+Each session type is also annotated with the participant that the action is directed towards.
+So, \textbf{b\ensuremath{\with}l1(int)} denotes receiving a message from participant \textbf{b} on label \textbf{l1} of type \textbf{int}.
+The continuation of each session type is denoted by a full stop.
+The \textbf{end} session type indicates the completion of communication.
+
+A more complex concept used in MPST theory is recursion:
+
+\begin{equation}
+    \label{eqn:mpst_example_rec}
+    \begin{array}{rl}
+        \textbf{\ensuremath{\Gamma}} \; = \;  & s[a]:\mu T.b\ensuremath{\oplus\{}\begin{array}{@{}l}\\\ensuremath{l1(int).T,} \\ \ensuremath{l2(str).end \},}\end{array} \cr
+        & s[b]:\mu T.a\ensuremath{\with\{}\begin{array}{@{}l}\\\ensuremath{l1(int).T,} \\ \ensuremath{l2(str).end \},}\end{array}
+    \end{array}
+\end{equation}
+
+The type variable \textbf{T} and least fixed point \textbf{\ensuremath{\mu T}} are used to model recursion through unfoldings.
+We write \textbf{\ensuremath{\mu T.S}} to say that \textbf{\ensuremath{\mu}} binds \textbf{T} in the session type \textbf{S}.
+In this protocol \textbf{a} can either keep sending an integer to \textbf{b} recursively or opt to send a string on label \textbf{\textit{l2}} and end the communication.
+Other important session type theory extensions, from the perspective of network protocols, are \textit{asynchrony} and \textit{timeouts}.
+These will be discussed in later sections.
+
+As previously mentioned, session types can also be used to guarantee desirable properties.
+To do so, MPST theory uses the notion of \textit{safety invariants}.
+Type systems are parametric on the safety invariant, which can be instantiated depending on the properties that the protocol must adhere to.
+The safety invariants present in the theory of MPST used for this work are \textit{safe}, \textit{deadlock-free}, \textit{terminating}, \textit{never-terminating}, \textit{live}, \textit{live+} and \textit{live++}.
+Each invariant also has judgments that must hold for the typing context to exhibit the corresponding property.
+Intuitively, \textit{safe} ensures that every input is matched by a corresponding output and vice-versa.
+This means that continuations are actually reachable via transitions.
+\textit{Deadlock-free} ensures that communication can make progress unless it has been closed, that is, all typing contexts must reduce to \textit{end}.
+\textit{Terminating} and \textit{never-terminating} check whether communication either ends or never ends.
+Finally, various levels of strictness of liveness ensure that all input and output actions eventually occur.
+
+Looking at the typing context in~\ref{eqn:mpst_example}, if we instantiate \textbf{\ensuremath{\Gamma}} with \textit{\ensuremath{\phi}} = \textit{safe}, and derive the needed typing judgement then we will see that this protocol type checks.
+Hence, a protocol adhering to this session type can be expected to exhibit a similar property at runtime. 
+However, by instantiating \textit{\ensuremath{\phi}} = \textit{deadlock-free}, and deriving the typing judgement, we will see that the context is not well typed.
+Hence, we can expect that a protocol adhering to this session type will deadlock.
+To emphasise, we can make a \textit{static} typing judgement to derive the \textit{runtime} behaviour of a process that abides by \textbf{\ensuremath{\Gamma}}.
+This distinction is important as the typing context properties are \textit{decidable}, while the runtime process properties are not.
