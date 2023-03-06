@@ -28,6 +28,8 @@
 \usepackage{caption}
 \usepackage{array}
 \usepackage{textcase}
+\usepackage{listings}
+\usepackage{lstautogobble}  % Fix relative indenting
 
 \newcommand{\todo}[1]{}
 \renewcommand{\todo}[1]{{\color{red} TODO: {#1}}}
@@ -37,6 +39,49 @@
 \newcommand{\serversystem}{\textbf{server\_system}}
 \newcommand{\clientuser}{\textbf{client\_user}}
 \newcommand{\clientsystem}{\textbf{client\_system}}
+\newcommand{\etal}{\textit{et al}.}
+
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{bluekeywords}{rgb}{0.13, 0.13, 1}
+\definecolor{greencomments}{rgb}{0, 0.5, 0}
+\definecolor{redstrings}{rgb}{0.9, 0, 0}
+\definecolor{graynumbers}{rgb}{0.5, 0.5, 0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+
+\lstset{
+    autogobble,
+    columns=fullflexible,
+    showspaces=false,
+    showtabs=false,
+    breaklines=true,
+    showstringspaces=false,
+    breakatwhitespace=true,
+    escapeinside={(*@}{@*)},
+    commentstyle=\color{greencomments},
+    keywordstyle=\color{bluekeywords},
+    stringstyle=\color{redstrings},
+    numberstyle=\color{graynumbers},
+    basicstyle=\ttfamily\footnotesize,
+    frame=l,
+    framesep=12pt,
+    xleftmargin=12pt,
+    tabsize=4,
+    captionpos=b
+}
+
+\lstdefinelanguage{Ctx}{
+    morekeywords = {syn, ack, synack, write_queue, read_queue, close, fin_ack, fin, close_init, retry_threshold_exceeded, connection_aborted, retransmit, rto_exceeded},
+    morecomment=[l]{//},
+    literate=%
+        {\&}{{{\color{redstrings}\&}}}1
+        {<+>}{{{\color{redstrings}<+>}}}1
+        {end}{{{\color{redstrings}end}}}1
+        {mu}{{{\color{redstrings}mu}}}1
+        {client\_system}{{{\color{mymauve}client\_system}}}1
+        {server\_system}{{{\color{mymauve}server\_system}}}1
+        {client\_user}{{{\color{mymauve}client\_user}}}1
+        {server\_user}{{{\color{mymauve}server\_user}}}1
+}
 
 \begin{document}
 
@@ -66,7 +111,7 @@
 
 \input{sections/intro.tex}
 \input{sections/background.tex}
-\input{sections/st_tcp.tex}
+\input{sections/tcp_model.tex}
 \input{sections/impl.tex}
 \input{sections/related_work.tex}
 \input{sections/conclusions.tex}

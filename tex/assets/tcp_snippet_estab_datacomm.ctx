@@ -1,0 +1,8 @@
+client_system&syn(SynSet).
+    client_system<+>synack(SynAckSet).
+        mu(t)(
+            client_system&ack(AckSet).
+            server_user<+>read_queue(Data).
+            server_user&write_queue(Data).
+            client_system<+>ack(AckSet).t
+        )

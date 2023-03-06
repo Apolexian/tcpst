@@ -8,7 +8,6 @@ As we will see later, using session types we can also guarantee that this protoc
 To express protocols where two or more participants interact, \textit{multiparty session types}~\cite{SY19} (MPST) can be used. 
 
 It is easiest to understand MPST by looking at an example of a protocol:
-
 \begin{equation}
     \label{eqn:mpst_example}
     \begin{array}{rl}
@@ -31,12 +30,11 @@ The continuation of each session type is denoted by a full stop.
 The \textbf{end} session type indicates the completion of communication.
 
 A more complex concept used in MPST theory is recursion:
-
 \begin{equation}
     \label{eqn:mpst_example_rec}
     \begin{array}{rl}
         \textbf{\ensuremath{\Gamma}} \; = \;  & s[a]:\mu T.b\ensuremath{\oplus\{}\begin{array}{@{}l}\\\ensuremath{l1(int).T,} \\ \ensuremath{l2(str).end \},}\end{array} \cr
-        & s[b]:\mu T.a\ensuremath{\with\{}\begin{array}{@{}l}\\\ensuremath{l1(int).T,} \\ \ensuremath{l2(str).end \},}\end{array}
+        & s[b]:\mu T.a\ensuremath{\with\{}\begin{array}{@{}l}\\\ensuremath{l1(int).T,} \\ \ensuremath{l2(str).end \}}\end{array}
     \end{array}
 \end{equation}
 
@@ -63,3 +61,37 @@ However, by instantiating \textit{\ensuremath{\phi}} = \textit{deadlock-free}, a
 Hence, we can expect that a protocol adhering to this session type will deadlock.
 To emphasise, we can make a \textit{static} typing judgement to derive the \textit{runtime} behaviour of a process that abides by \textbf{\ensuremath{\Gamma}}.
 This distinction is important as the typing context properties are \textit{decidable}, while the runtime process properties are not.
+
+\begin{figure}[H]
+    \centering
+        $
+        \begin{array}{rclll}
+        \ensuremath{c} & \Coloneqq & \ensuremath{s[r] \colon S} \\[\medskipamount]
+        \ensuremath{S}
+        & \Coloneqq & 
+        \begin{array}{@{}l}
+                \ensuremath{r \oplus \{l_i(P_i).S_i\}_{i \in I}}
+                \sep        \ensuremath{r \with \{l_i(P_i).S_i\}_{i \in I}} \\[\smallskipamount]
+                \sep        \ensuremath{\mu(t).(S)}
+                \sep        \ensuremath{t}
+                \sep        \ensuremath{end}
+        \end{array} \\[\bigskipamount]
+        \ensuremath{P}
+            & \Coloneqq & \ensuremath{\{TcpPayloadTypes\}}
+        \end{array}
+        $
+    \caption{The syntax of session type context language used to create the TCP model in \ensuremath{mpstk}.} \label{fig:syntax}
+\end{figure}
+
+The flexibility of session type theory can also be seen in the tooling that was created to facilitate making typing judgements.
+Specifically, the \textit{mpstk}~\cite{SY19} tool translates safety invariants to the first-order modal $\mu$-calculus used by the \textit{mCRL2}~\cite{BGKLNVWWW19} formal specification language.
+This means that the associated model checking toolset can be used to make typing judgements.
+This is done by creating a model of a protocol in the typing context language used by \textit{mpstk} and then simply specifying the invariants to check and running the tool.
+For this work, we have further modified \textit{mpstk} to include the payload types needed for TCP.
+
+The syntax for the session type language that the protocols are written in is presented in Figure~\ref{fig:syntax}.
+We do not omit this as the syntax of the language used for \ensuremath{mpstk} differs to that of LM.
+Additionally, we only need to consider a simplified subset of the calculus.
+Note that \ensuremath{P} can not be an instance of \ensuremath{S}, that is, we do not consider sending sessions across channels.
+Although this is standard to the theory of \ensuremath{\pi}-calculus, TCP would not benefit from such a mechanism.
+Hence, the payload types are restricted to the defined TCP payload types.
