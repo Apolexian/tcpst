@@ -1,0 +1,13 @@
+server_user&close_init(Close).
+client_system<+>fin(FinSet).
+client_system&{
+        // USER INITIATED CLOSE
+        fin_ack(FinAckSet).
+        client_system<+>ack(AckSet).
+        server_user<+>close(Close).end,
+        // SIMULTANEOUS CLOSE
+        fin(FinSet).
+        client_system<+>ack(AckSet).
+        client_system&ack(AckSet).
+        server_user<+>close(Close).end
+    }

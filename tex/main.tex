@@ -1,136 +1,125 @@
-\documentclass{article}
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts, amsbsy}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 
-\usepackage[backend=bibtex]{biblatex}
 \usepackage{color}
 \usepackage[nottoc]{tocbibind}
-\usepackage{graphicx}
 \usepackage{amsthm}
 \usepackage{mathtools,textgreek}
-\usepackage{amsmath,amsfonts,amsbsy,amssymb}
 \usepackage{geometry}
 \usepackage{namespc}
 \usepackage{cmll}
 \usepackage{float}
-
-\addbibresource{ref.bib}
-
-\graphicspath{ {./assets/} }
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xltabular}
+\usepackage{ltablex}
+\usepackage{pifont}
+\usepackage{caption}
+\usepackage{array}
+\usepackage{textcase}
+\usepackage{listings}
+\usepackage{lstautogobble}  % Fix relative indenting
 
 \newcommand{\todo}[1]{}
 \renewcommand{\todo}[1]{{\color{red} TODO: {#1}}}
-
+\newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
 \newcommand{\sep}{\;\mid\;}
+\newcommand{\serveruser}{\textbf{server\_user}}
+\newcommand{\serversystem}{\textbf{server\_system}}
+\newcommand{\clientuser}{\textbf{client\_user}}
+\newcommand{\clientsystem}{\textbf{client\_system}}
+\newcommand{\etal}{\textit{et al}.}
 
-\title{tcpst todo}
-\author{todo}
-\date{\today}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{bluekeywords}{rgb}{0.13, 0.13, 1}
+\definecolor{greencomments}{rgb}{0, 0.5, 0}
+\definecolor{redstrings}{rgb}{0.9, 0, 0}
+\definecolor{graynumbers}{rgb}{0.5, 0.5, 0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+
+\lstset{
+    autogobble,
+    columns=fullflexible,
+    showspaces=false,
+    showtabs=false,
+    breaklines=true,
+    showstringspaces=false,
+    breakatwhitespace=true,
+    escapeinside={(*@}{@*)},
+    commentstyle=\color{greencomments},
+    keywordstyle=\color{bluekeywords},
+    stringstyle=\color{redstrings},
+    numberstyle=\color{graynumbers},
+    basicstyle=\ttfamily\footnotesize,
+    frame=l,
+    framesep=12pt,
+    xleftmargin=12pt,
+    tabsize=4,
+    captionpos=b
+}
+
+\lstdefinelanguage{Ctx}{
+    morekeywords = {syn, ack, synack, write_queue, read_queue, close, fin_ack, fin, close_init, retry_threshold_exceeded, connection_aborted, retransmit, rto_exceeded},
+    morecomment=[l]{//},
+    literate=%
+        {\&}{{{\color{redstrings}\&}}}1
+        {<+>}{{{\color{redstrings}<+>}}}1
+        {end}{{{\color{redstrings}end}}}1
+        {mu}{{{\color{redstrings}mu}}}1
+        {client\_system}{{{\color{mymauve}client\_system}}}1
+        {server\_system}{{{\color{mymauve}server\_system}}}1
+        {client\_user}{{{\color{mymauve}client\_user}}}1
+        {server\_user}{{{\color{mymauve}server\_user}}}1
+}
 
 \begin{document}
 
+\title{todo\\
+
+\thanks{Identify applicable funding agency here. If none, delete this.}
+}
+
+\author{\IEEEauthorblockN{todo}
+\IEEEauthorblockA{todo}
+\and
+\IEEEauthorblockN{todo}
+\IEEEauthorblockA{todo}
+\and
+\IEEEauthorblockN{todo}
+\IEEEauthorblockA{todo}}
+
 \maketitle
 
-\section{intro}
+\begin{abstract}
+\todo{}
+\end{abstract}
 
-\todo{
-    \begin{itemize}
-        \item Something on IETF and RFCs
-        \item Motivation behind formalising RFCs
-        \item Session types (possibly how is this different to other formalisms?)
-    \end{itemize}
-}
+\begin{IEEEkeywords}
+\todo{}
+\end{IEEEkeywords}
 
-\section{Background}
+\input{sections/intro.tex}
+\input{sections/background.tex}
+\input{sections/tcp_model.tex}
+\input{sections/impl.tex}
+\input{sections/related_work.tex}
+\input{sections/conclusions.tex}
+\input{sections/acks.tex}
 
-\todo{
-    \begin{itemize}
-        \item some info on other formalisms and why STs are interesting, basically motivation for using STs
-        \item ST - is there a point in explaining binary?
-        \item MPST - is there a point in explaining classic vs less is more?
-        \item could include syntax of less is more for context 
-        \item should mention that the tool works by translating ST context to mcrl2 checker (not sure if in too much detail)
-        \item how are STs useful in PLs? Could include snippet here from my Rust lib as examples
-        \item how are STs useful outside of PLs? I.e. that less is more has the model checking tool
-    \end{itemize}
-}
+\bibliographystyle{IEEEtran}
+\bibliography{IEEEabrv,ref.bib}
 
-\section{Discussion/models}
+\vspace{12pt}
 
-\todo{
-    \begin{itemize}
-        \item explain what properties we are checking for and what they mean
-        \item pop3 model - we can see that its df, all versions of liveness and safe, could be non terminating which is fine
-        \item tcp model - harder protocol, calculus cant describe it fully, not df hence lose over properties
-        \item why its still useful
-        \item why are we not using some calculus with time-outs? (tooling non existent, unclear what these languages mean by timeout)
-        \item what other stuff is missing - what can we model using STs and what can we not?
-        \item difference in how RFCs are designed and STs - non state based, continuation can make things not actually parallel (especially without async)
-        \item what is not done by current ST theory? E.g. The ST concept of time mostly is based on a timeout - how do we describe things like in X time we can send at most Y segments?
-        \item how easy is it to solve this discrepancy using some IR? (\todo{if this point is raised, should probably actually make such an IR?})
-        \item how do we see people using STs for RFCs - should probably make a case for this being hidden away and generated automatically?
-        \item could make some case for some syntax sugar suggestions and modify syntax to include this but this is a dubious contribution?
-    \end{itemize}
-}
-
-\section{Future directions}
-
-\todo{
-    \begin{itemize}
-        \item balancing static and dynamic checks
-        \item context free?
-        \item a more "practical" calculus
-        \item parsing and code generation, running model checker on translated code (e.g. in Rust) rather than on sepp ST language
-        \item feedback for RFC maker - how can we use this output to direct the document writing? Can we extract the exact point where something went wrong?
-        \item e.g. we do something and the model is no longer safe, can we say why?
-        \item if we want to include the binary ST library then could talk about how systems languages are suited for STs?
-        \item translating ST type contexts to other model checkers?
-    \end{itemize}
-}
-
-\section{Random bits that will go somewhere}
-
-A new theory of multiparty session types (LM) developed by Scalas and Yoshida~\cite{SY19} removes the concepts of global types and duality.
-Instead, LM introduces the concept of behavioural type-level properties.
-This change leads to a less restrictive subject reduction that provides a more general theory than classic multiparty session types.
-
-\todo{explain behavioural type-level properties}
-
-\todo{explain how LM is linked to the model checker and introduce the tool}
-
-\todo{explain what benefits model checker has}
-
-
-\begin{figure}[H]
-    \centering
-        $
-        \begin{array}{rcl}
-        \ensuremath{c}
-            & \Coloneqq & \ensuremath{s[r] \colon S} \cr
-        \ensuremath{S}
-            & \Coloneqq & \ensuremath{r \oplus \{l_i(P_i).S_i\}_{i \in I}}
-            \sep        \ensuremath{r \with \{l_i(P_i).S_i\}_{i \in I}}
-            \sep        \ensuremath{\mu(t).(S)}
-            \sep        \ensuremath{t}
-            \sep        \ensuremath{end} \cr
-        \ensuremath{P}
-            & \Coloneqq & \ensuremath{\{TcpPayloadTypes\} \cup \{Pop3PayloadTypes\}}
-        \end{array}
-        $
-    \caption{The syntax of session type contexts used to create the protocol models in \ensuremath{mpstk}.}
-    \label{fig:syntax}
-\end{figure}
-
-Using the \ensuremath{mpstk} tool we have created models of the POP3 and TCP network protocols.
-
-\todo{explain why TCP is multiparty, check: is this the first ST model that considers TCP to be multiparty?}
-
-The syntax for the session type language that the protocols are written in is presented in Figure~\ref{fig:syntax}.
-We do not omit this as the syntax of the language used for \ensuremath{mpstk} differs to that of LM.
-Additionally, we only need to consider a simplified subset of the calculus.
-Note that \ensuremath{P} can not be an instance of \ensuremath{S}, that is, we do not consider sending sessions across channels.
-Although this is standard to the theory of \ensuremath{\pi}-calculus, the presented network protocols would not benefit from such a mechanism.
-Hence, the payload types are restricted to the defined TCP and POP3 payload types.
-
-\medskip
-\nocite{*}
-\printbibliography
 \end{document}
