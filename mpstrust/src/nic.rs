@@ -160,24 +160,35 @@ mod nic_tests {
     struct RoleB {}
     impl Role for RoleB {}
 
+    #[derive(Clone)]
+    struct RoleC {}
+    impl Role for RoleC {}
+
     #[test]
     fn simple_protocol() {
-        type StA = OfferOne<RoleB, Ack, OfferOne<RoleB, Syn, End>>;
+        type StA = OfferOne<RoleB, Ack, OfferOne<RoleB, Syn, OfferOne<RoleC, Ack, End>>>;
         type StB = SelectOne<RoleA, Ack, SelectOne<RoleA, Syn, End>>;
+        type StC = SelectOne<RoleA, Ack, End>;
 
         let nic_b_to_a = tun_tap::Iface::without_packet_info("tun0", tun_tap::Mode::Tun).unwrap();
         let nic_a_to_b = tun_tap::Iface::without_packet_info("tun1", tun_tap::Mode::Tun).unwrap();
+        let nic_c_to_a = tun_tap::Iface::without_packet_info("tun2", tun_tap::Mode::Tun).unwrap();
+        let nic_a_to_c = tun_tap::Iface::without_packet_info("tun3", tun_tap::Mode::Tun).unwrap();
 
         let channel_b_to_a = Nic::<RoleB, RoleA>::new(nic_b_to_a);
         let channel_a_to_b = Nic::<RoleA, RoleB>::new(nic_a_to_b);
+        let channel_c_to_a = Nic::<RoleA, RoleC>::new(nic_c_to_a);
+        let channel_a_to_c = Nic::<RoleC, RoleA>::new(nic_a_to_c);
 
         let a = StA::new();
         let b = StB::new();
+        let c = StC::new();
 
         thread::scope(|scope| {
             let thread_a = scope.spawn(|| {
                 let (_, cont) = offer_one_ack(a, &channel_a_to_b);
                 let (_, cont) = offer_one_syn(cont, &channel_a_to_b);
+                let (_, cont) = offer_one_ack(cont, &channel_c_to_a);
                 cont.close();
             });
             let thread_b = scope.spawn(|| {
@@ -199,8 +210,20 @@ mod nic_tests {
                 let cont = select_one_syn(cont, syn_message, &channel_b_to_a);
                 cont.close();
             });
+            let thread_c = scope.spawn(|| {
+                let ack_packet = tcp::Builder::default();
+                let mut flags = Flags::empty();
+                flags.insert(Flags::ACK);
+                let ack_packet = ack_packet.flags(flags).unwrap();
+                let ack_packet = ack_packet.build().unwrap();
+                let ack_message = Nic::<RoleB, RoleA>::to_ack_message(ack_packet).unwrap();
+
+                let cont = select_one_ack(c, ack_message, &channel_a_to_c);
+                cont.close();
+            });
             thread_a.join().unwrap();
             thread_b.join().unwrap();
+            thread_c.join().unwrap();
         });
     }
 }
