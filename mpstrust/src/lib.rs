@@ -469,3 +469,5 @@ mod tests {
         });
     }
 }
+
+mod nic;
