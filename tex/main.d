@@ -101,13 +101,13 @@ main.pdf :\
     /usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty\
     /usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty\
     /usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty\
+    /usr/share/texlive/texmf-dist/tex/latex/graphics/mathcolor.ltx\
     /usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty\
     /usr/share/texlive/texmf-dist/tex/latex/greek-fontenc/greek-fontenc.def\
     /usr/share/texlive/texmf-dist/tex/latex/greek-fontenc/lgrenc.def\
     /usr/share/texlive/texmf-dist/tex/latex/greek-inputenc/lgrenc.dfu\
     /usr/share/texlive/texmf-dist/tex/latex/hycolor/hycolor.sty\
     /usr/share/texlive/texmf-dist/tex/latex/hyperref/hpdftex.def\
-    /usr/share/texlive/texmf-dist/tex/latex/hyperref/hyperref-langpatches.def\
     /usr/share/texlive/texmf-dist/tex/latex/hyperref/hyperref.sty\
     /usr/share/texlive/texmf-dist/tex/latex/hyperref/nameref.sty\
     /usr/share/texlive/texmf-dist/tex/latex/hyperref/pd1enc.def\
@@ -370,6 +370,8 @@ main.pdf :\
 
 /usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty :
 
+/usr/share/texlive/texmf-dist/tex/latex/graphics/mathcolor.ltx :
+
 /usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty :
 
 /usr/share/texlive/texmf-dist/tex/latex/greek-fontenc/greek-fontenc.def :
@@ -381,8 +383,6 @@ main.pdf :\
 /usr/share/texlive/texmf-dist/tex/latex/hycolor/hycolor.sty :
 
 /usr/share/texlive/texmf-dist/tex/latex/hyperref/hpdftex.def :
-
-/usr/share/texlive/texmf-dist/tex/latex/hyperref/hyperref-langpatches.def :
 
 /usr/share/texlive/texmf-dist/tex/latex/hyperref/hyperref.sty :
 
