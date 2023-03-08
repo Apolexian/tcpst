@@ -10,12 +10,17 @@ pub struct Ack {
     payload: Vec<u8>,
 }
 impl Message for Ack {}
+impl AckMessage for Ack{}
+
+pub trait SynMessage: Message {}
+pub trait AckMessage: Message {}
 
 pub struct Syn {
     header: TcpHeader,
     payload: Vec<u8>,
 }
 impl Message for Syn {}
+impl SynMessage for Syn{}
 
 pub struct Nic<R1, R2> {
     nic: Iface,
@@ -80,7 +85,7 @@ impl<R1, R2> Nic<R1, R2> {
 #[must_use]
 pub fn offer_one_ack<'a, R1, R2, M, A>(_o: OfferOne<R1, M, A>, channel: &Nic<R2, R1>) -> (Ack, A)
 where
-    M: Message + 'static,
+    M: AckMessage + 'static,
     A: Action + 'static,
     R1: Role,
     R2: Role,
@@ -94,7 +99,7 @@ where
 #[must_use]
 pub fn offer_one_syn<'a, R1, R2, M, A>(_o: OfferOne<R1, M, A>, channel: &Nic<R2, R1>) -> (Syn, A)
 where
-    M: Message + 'static,
+    M: SynMessage + 'static,
     A: Action + 'static,
     R1: Role,
     R2: Role,
@@ -112,7 +117,7 @@ pub fn select_one_ack<R1, R2, M, A>(
     channel: &Nic<R1, R2>,
 ) -> A
 where
-    M: Message + 'static,
+    M: AckMessage + 'static,
     A: Action + 'static,
     R1: Role,
     R2: Role,
@@ -129,7 +134,7 @@ pub fn select_one_syn<R1, R2, M, A>(
     channel: &Nic<R1, R2>,
 ) -> A
 where
-    M: Message + 'static,
+    M: SynMessage + 'static,
     A: Action + 'static,
     R1: Role,
     R2: Role,
