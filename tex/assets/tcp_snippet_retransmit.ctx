@@ -1,7 +1,0 @@
-rto_exceeded(AckSet).
-client_system<+>retransmit(AckSet).
-client_system&{
-    ack(AckSet).t,
-    retry_threshold_exceeded(RstSet).
-    server_user<+>connection_aborted(Close).end
-}
