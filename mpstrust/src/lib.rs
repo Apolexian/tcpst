@@ -1,6 +1,5 @@
 use crossbeam::CrossBeamRoleChannel;
 use std::marker::PhantomData;
-use tcp_messages::{Ack, AckMessage, Syn, SynMessage};
 
 // Supporting traits
 
@@ -12,7 +11,10 @@ pub trait Action: Send {
 
 pub trait Role {}
 
-pub trait Message: Send {}
+pub trait Message: Send {
+    fn from_slice(slice: Vec<u8>) -> Self;
+    fn to_slice(&self) -> Vec<u8>;
+}
 
 // Session action types
 
@@ -151,77 +153,44 @@ impl End {
 }
 
 #[must_use]
-pub fn offer_one_ack<'a, R1, R2, M, A>(
+pub fn offer_one<'a, R1, R2, M, A>(
     _o: OfferOne<R1, M, A>,
     channel: &CrossBeamRoleChannel<R1, R2>,
-) -> (Ack, A)
+) -> (M, A)
 where
-    M: AckMessage + 'static,
+    M: Message + 'static,
     A: Action + 'static,
     R1: Role,
     R2: Role,
 {
     let message = channel.recv.recv().unwrap();
-    let ack = CrossBeamRoleChannel::<R1, R2>::to_ack_message(message);
-    (ack, A::new())
+    let message = M::from_slice(message);
+    (message, A::new())
 }
 
 #[must_use]
-pub fn offer_one_syn<'a, R1, R2, M, A>(
-    _o: OfferOne<R1, M, A>,
-    channel: &CrossBeamRoleChannel<R1, R2>,
-) -> (Syn, A)
-where
-    M: SynMessage + 'static,
-    A: Action + 'static,
-    R1: Role,
-    R2: Role,
-{
-    let message = channel.recv.recv().unwrap();
-    let syn = CrossBeamRoleChannel::<R1, R2>::to_syn_message(message);
-    (syn, A::new())
-}
-
-#[must_use]
-pub fn select_one_ack<R1, R2, M, A>(
+pub fn select_one<R1, R2, M, A>(
     _o: SelectOne<R2, M, A>,
-    message: Ack,
+    message: M,
     channel: &CrossBeamRoleChannel<R1, R2>,
 ) -> A
 where
-    M: AckMessage + 'static,
+    M: Message + 'static,
     A: Action + 'static,
     R1: Role,
     R2: Role,
 {
-    let packet = CrossBeamRoleChannel::<R1, R2>::from_ack_message(message);
+    let packet = message.to_slice();
     channel.send.send(packet).unwrap();
     A::new()
 }
 
-#[must_use]
-pub fn select_one_syn<R1, R2, M, A>(
-    _o: SelectOne<R2, M, A>,
-    message: Syn,
-    channel: &CrossBeamRoleChannel<R1, R2>,
-) -> A
-where
-    M: SynMessage + 'static,
-    A: Action + 'static,
-    R1: Role,
-    R2: Role,
-{
-    let packet = CrossBeamRoleChannel::<R1, R2>::from_syn_message(message);
-    channel.send.send(packet).unwrap();
-    A::new()
-}
-
-pub fn offer_two_ack_syn<R1, R2, R3, M1, M2, A1, A2>(
+pub fn offer_two<R1, R2, R3, M1, M2, A1, A2>(
     _o: OfferTwo<R2, R3, M1, M2, A1, A2>,
     channel_one: CrossBeamRoleChannel<R2, R1>,
     channel_two: CrossBeamRoleChannel<R3, R1>,
     picker: Box<dyn Fn() -> bool>,
-) -> Branch<(Ack, A1), (Syn, A2)>
+) -> Branch<(M1, A1), (M2, A2)>
 where
     R1: Role,
     R2: Role,
@@ -233,22 +202,16 @@ where
 {
     let choice = picker();
     match choice {
-        true => Branch::Left((
-            CrossBeamRoleChannel::<R2, R1>::to_ack_message(channel_one.recv.recv().unwrap()),
-            A1::new(),
-        )),
-        false => Branch::Right((
-            CrossBeamRoleChannel::<R3, R1>::to_syn_message(channel_two.recv.recv().unwrap()),
-            A2::new(),
-        )),
+        true => Branch::Left((M1::from_slice(channel_one.recv.recv().unwrap()), A1::new())),
+        false => Branch::Right((M2::from_slice(channel_two.recv.recv().unwrap()), A2::new())),
     }
 }
 
 #[must_use]
-pub fn select_ack_in_ack_syn<R1, R2, R3, M1, M2, A1, A2>(
+pub fn select_left<R1, R2, R3, M1, M2, A1, A2>(
     _o: SelectTwo<R2, R3, M1, M2, A1, A2>,
     channel: CrossBeamRoleChannel<R1, R2>,
-    message: Ack,
+    message: M1,
 ) -> A1
 where
     R1: Role,
@@ -259,18 +222,15 @@ where
     A1: Action,
     A2: Action,
 {
-    channel
-        .send
-        .send(CrossBeamRoleChannel::<R1, R2>::from_ack_message(message))
-        .unwrap();
+    channel.send.send(message.to_slice()).unwrap();
     A1::new()
 }
 
 #[must_use]
-pub fn select_syn_in_ack_syn<R1, R2, R3, M1, M2, A1, A2>(
+pub fn select_right<R1, R2, R3, M1, M2, A1, A2>(
     _o: SelectTwo<R2, R3, M1, M2, A1, A2>,
     channel: CrossBeamRoleChannel<R1, R2>,
-    message: Syn,
+    message: M2,
 ) -> A2
 where
     R1: Role,
@@ -281,10 +241,7 @@ where
     A1: Action,
     A2: Action,
 {
-    channel
-        .send
-        .send(CrossBeamRoleChannel::<R1, R2>::from_syn_message(message))
-        .unwrap();
+    channel.send.send(message.to_slice()).unwrap();
     A2::new()
 }
 
@@ -294,7 +251,7 @@ mod tests {
 
     use crate::{
         crossbeam::CrossBeamRoleChannel,
-        offer_one_ack, offer_one_syn, select_one_ack, select_one_syn,
+        offer_one, select_one,
         tcp_messages::{Ack, Syn},
         Action, End, OfferOne, Role, SelectOne,
     };
@@ -330,13 +287,13 @@ mod tests {
 
         thread::scope(|scope| {
             let thread_a = scope.spawn(|| {
-                let (_, cont) = offer_one_syn(a, &channel);
-                let (_, cont) = offer_one_ack(cont, &channel);
+                let (_, cont) = offer_one(a, &channel);
+                let (_, cont) = offer_one(cont, &channel);
                 cont.close();
             });
             let thread_b = scope.spawn(|| {
-                let cont = select_one_syn(b, Syn {}, &channel);
-                let cont = select_one_ack(cont, Ack {}, &channel);
+                let cont = select_one(b, Syn {}, &channel);
+                let cont = select_one(cont, Ack {}, &channel);
                 cont.close();
             });
             thread_a.join().unwrap();

@@ -1,14 +1,28 @@
 use crate::Message;
 
-pub struct Ack {
+pub struct Ack {}
+impl Message for Ack {
+    fn from_slice(_slice: Vec<u8>) -> Self {
+        Ack {}
+    }
+
+    fn to_slice(&self) -> Vec<u8> {
+        vec![]
+    }
 }
-impl Message for Ack {}
-impl AckMessage for Ack{}
+impl AckMessage for Ack {}
 
 pub trait SynMessage: Message {}
 pub trait AckMessage: Message {}
 
-pub struct Syn {
+pub struct Syn {}
+impl Message for Syn {
+    fn from_slice(_slice: Vec<u8>) -> Self {
+        Syn {}
+    }
+
+    fn to_slice(&self) -> Vec<u8> {
+        vec![]
+    }
 }
-impl Message for Syn {}
-impl SynMessage for Syn{}
+impl SynMessage for Syn {}
