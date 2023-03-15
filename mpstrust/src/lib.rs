@@ -68,22 +68,20 @@ where
     }
 }
 
-pub struct OfferTwo<R1, R2, M1, M2, A1, A2>
+pub struct OfferTwo<R, M1, M2, A1, A2>
 where
-    R1: Role,
-    R2: Role,
+    R: Role,
     M1: Message,
     M2: Message,
     A1: Action,
     A2: Action,
 {
-    phantom: PhantomData<(R1, R2, M1, M2, A1, A2)>,
+    phantom: PhantomData<(R, M1, M2, A1, A2)>,
 }
 
-impl<R1, R2, M1, M2, A1, A2> Action for OfferTwo<R1, R2, M1, M2, A1, A2>
+impl<R, M1, M2, A1, A2> Action for OfferTwo<R, M1, M2, A1, A2>
 where
-    R1: Role + std::marker::Send,
-    R2: Role + std::marker::Send,
+    R: Role + std::marker::Send,
     M1: Message,
     M2: Message,
     A1: Action,
@@ -104,22 +102,20 @@ pub enum Branch<L, R> {
     Right(R),
 }
 
-pub struct SelectTwo<R1, R2, M1, M2, A1, A2>
+pub struct SelectTwo<R, M1, M2, A1, A2>
 where
-    R1: Role,
-    R2: Role,
+    R: Role,
     M1: Message,
     M2: Message,
     A1: Action,
     A2: Action,
 {
-    phantom: PhantomData<(R1, R2, M1, M2, A1, A2)>,
+    phantom: PhantomData<(R, M1, M2, A1, A2)>,
 }
 
-impl<R1, R2, M1, M2, A1, A2> Action for SelectTwo<R1, R2, M1, M2, A1, A2>
+impl<R, M1, M2, A1, A2> Action for SelectTwo<R, M1, M2, A1, A2>
 where
-    R1: Role + std::marker::Send,
-    R2: Role + std::marker::Send,
+    R: Role + std::marker::Send,
     M1: Message,
     M2: Message,
     A1: Action,
@@ -147,13 +143,18 @@ impl Action for End {
 }
 
 impl End {
-    pub fn close(&self) {
-        drop(self)
+    pub fn close<R1, R2>(&self, channel: CrossBeamRoleChannel<R1, R2>)
+    where
+        R1: Role,
+        R2: Role,
+    {
+        drop(channel);
+        drop(self);
     }
 }
 
 #[must_use]
-pub fn offer_one<'a, R1, R2, M, A>(
+pub fn offer_one<R1, R2, M, A>(
     _o: OfferOne<R1, M, A>,
     channel: &CrossBeamRoleChannel<R1, R2>,
 ) -> (M, A)
@@ -185,16 +186,14 @@ where
     A::new()
 }
 
-pub fn offer_two<R1, R2, R3, M1, M2, A1, A2>(
-    _o: OfferTwo<R2, R3, M1, M2, A1, A2>,
-    channel_one: CrossBeamRoleChannel<R2, R1>,
-    channel_two: CrossBeamRoleChannel<R3, R1>,
+pub fn offer_two<R1, R2, M1, M2, A1, A2>(
+    _o: OfferTwo<R2, M1, M2, A1, A2>,
+    channel: CrossBeamRoleChannel<R1, R2>,
     picker: Box<dyn Fn() -> bool>,
 ) -> Branch<(M1, A1), (M2, A2)>
 where
     R1: Role,
     R2: Role,
-    R3: Role,
     M1: Message,
     M2: Message,
     A1: Action,
@@ -202,21 +201,20 @@ where
 {
     let choice = picker();
     match choice {
-        true => Branch::Left((M1::from_slice(channel_one.recv.recv().unwrap()), A1::new())),
-        false => Branch::Right((M2::from_slice(channel_two.recv.recv().unwrap()), A2::new())),
+        true => Branch::Left((M1::from_slice(channel.recv.recv().unwrap()), A1::new())),
+        false => Branch::Right((M2::from_slice(channel.recv.recv().unwrap()), A2::new())),
     }
 }
 
 #[must_use]
-pub fn select_left<R1, R2, R3, M1, M2, A1, A2>(
-    _o: SelectTwo<R2, R3, M1, M2, A1, A2>,
+pub fn select_left<R1, R2, M1, M2, A1, A2>(
+    _o: SelectTwo<R2, M1, M2, A1, A2>,
     channel: CrossBeamRoleChannel<R1, R2>,
     message: M1,
 ) -> A1
 where
     R1: Role,
     R2: Role,
-    R3: Role,
     M1: Message,
     M2: Message,
     A1: Action,
@@ -228,7 +226,7 @@ where
 
 #[must_use]
 pub fn select_right<R1, R2, R3, M1, M2, A1, A2>(
-    _o: SelectTwo<R2, R3, M1, M2, A1, A2>,
+    _o: SelectTwo<R2, M1, M2, A1, A2>,
     channel: CrossBeamRoleChannel<R1, R2>,
     message: M2,
 ) -> A2
@@ -284,17 +282,17 @@ mod tests {
         type LocalViewB = SelectOne<RoleA, Syn, SelectOne<RoleA, Ack, End>>;
         let a = LocalViewA::new();
         let b = LocalViewB::new();
-
+        let channel_clone = channel.clone();
         thread::scope(|scope| {
             let thread_a = scope.spawn(|| {
-                let (_, cont) = offer_one(a, &channel);
-                let (_, cont) = offer_one(cont, &channel);
-                cont.close();
+                let (_, cont) = offer_one(a, &channel_clone);
+                let (_, cont) = offer_one(cont, &channel_clone);
+                cont.close(channel_clone);
             });
             let thread_b = scope.spawn(|| {
                 let cont = select_one(b, Syn {}, &channel);
                 let cont = select_one(cont, Ack {}, &channel);
-                cont.close();
+                cont.close(channel);
             });
             thread_a.join().unwrap();
             thread_b.join().unwrap();
