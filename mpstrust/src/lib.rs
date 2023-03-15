@@ -225,7 +225,7 @@ where
 }
 
 #[must_use]
-pub fn select_right<R1, R2, R3, M1, M2, A1, A2>(
+pub fn select_right<R1, R2, M1, M2, A1, A2>(
     _o: SelectTwo<R2, M1, M2, A1, A2>,
     channel: CrossBeamRoleChannel<R1, R2>,
     message: M2,
@@ -233,7 +233,6 @@ pub fn select_right<R1, R2, R3, M1, M2, A1, A2>(
 where
     R1: Role,
     R2: Role,
-    R3: Role,
     M1: Message,
     M2: Message,
     A1: Action,
