@@ -3,8 +3,7 @@ use std::marker::PhantomData;
 use crossbeam_channel::{Receiver, Sender};
 
 use crate::{
-    tcp_messages::{Ack, Syn},
-    Role,
+    Message, Role,
 };
 
 #[derive(Clone)]
@@ -30,20 +29,33 @@ where
             phantom: PhantomData::default(),
         }
     }
+}
 
-    pub fn to_ack_message(_slice: Vec<u8>) -> Ack {
-        Ack {}
+pub trait CBMessage: Message {
+    fn from_slice(_slice: Vec<u8>) -> Self;
+    fn to_slice(&self) -> Vec<u8>;
+}
+
+pub struct CBAck {}
+impl Message for CBAck {}
+impl CBMessage for CBAck {
+    fn from_slice(_slice: Vec<u8>) -> Self {
+        CBAck {}
     }
 
-    pub fn from_ack_message(_ack: Ack) -> Vec<u8> {
+    fn to_slice(&self) -> Vec<u8> {
         vec![]
     }
+}
 
-    pub fn to_syn_message(_slice: Vec<u8>) -> Syn {
-        Syn {}
+pub struct CBSyn {}
+impl Message for CBSyn {}
+impl CBMessage for CBSyn {
+    fn from_slice(_slice: Vec<u8>) -> Self {
+        CBSyn {}
     }
 
-    pub fn from_syn_message(_ack: Syn) -> Vec<u8> {
+    fn to_slice(&self) -> Vec<u8> {
         vec![]
     }
 }
