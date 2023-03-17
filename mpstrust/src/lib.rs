@@ -1,7 +1,5 @@
 use std::marker::PhantomData;
 
-use pnet_channel::{TransportChannel, PNetTcpMessage};
-
 // Supporting traits
 
 pub trait Action: Send {
@@ -12,7 +10,10 @@ pub trait Action: Send {
 
 pub trait Role {}
 
-pub trait Message: Send {}
+pub trait Message: Send {
+    fn to_net_representation(&self) -> Vec<u8>;
+    fn from_net_representation(packet: Vec<u8>) -> Self;
+}
 
 // Session action types
 
@@ -140,105 +141,63 @@ impl Action for End {
     }
 }
 
-impl End {
-    pub fn close<R1, R2>(&self, channel: TransportChannel)
+pub trait SessionTypedChannel<R1, R2> {
+    #[must_use]
+    fn offer_one<M, A>(&mut self, _o: OfferOne<R2, M, A>) -> (M, A)
+    where
+        M: Message + 'static,
+        A: Action + 'static,
+        R1: Role,
+        R2: Role;
+
+    #[must_use]
+    fn select_one<M, A>(&mut self, _o: SelectOne<R2, M, A>, message: M) -> A
+    where
+        M: Message,
+        A: Action,
+        R1: Role,
+        R2: Role;
+
+    #[must_use]
+    fn offer_two<M1, M2, A1, A2>(
+        &mut self,
+        _o: OfferTwo<R2, M1, M2, A1, A2>,
+        picker: Box<dyn Fn() -> bool>,
+    ) -> Branch<(M1, A1), (M2, A2)>
     where
         R1: Role,
         R2: Role,
-    {
-        drop(channel);
-        drop(self);
-    }
+        M1: Message + 'static,
+        M2: Message + 'static,
+        A1: Action,
+        A2: Action;
+
+    #[must_use]
+    fn select_left<M1, M2, A1, A2>(&mut self, _o: SelectTwo<R2, M1, M2, A1, A2>, message: M1) -> A1
+    where
+        R1: Role,
+        R2: Role,
+        M1: Message + 'static,
+        M2: Message + 'static,
+        A1: Action,
+        A2: Action;
+
+    #[must_use]
+    fn select_right<M1, M2, A1, A2>(
+        &mut self,
+        _o: SelectTwo<R2, M1, M2, A1, A2>,
+        message: M2,
+    ) -> A2
+    where
+        R1: Role,
+        R2: Role,
+        M1: Message + 'static,
+        M2: Message + 'static,
+        A1: Action,
+        A2: Action;
+    
+    fn close(self, end: End);
 }
 
-#[must_use]
-pub fn offer_one<R1, R2, M, A>(
-    _o: OfferOne<R1, M, A>,
-    channel: &mut TransportChannel,
-) -> (M, A)
-where
-    M: Message + 'static + for<'a> PNetTcpMessage<'a>,
-    A: Action + 'static,
-    R1: Role,
-    R2: Role,
-{
-    let message = M::from_pnet_tcp_packet(channel.recv());
-    (message, A::new())
-}
-
-#[must_use]
-pub fn select_one<R1, R2, M, A>(
-    _o: SelectOne<R2, M, A>,
-    message: M,
-    channel: &mut TransportChannel,
-) -> A
-where
-    M: Message + 'static + for<'a> PNetTcpMessage<'a>,
-    A: Action + 'static,
-    R1: Role,
-    R2: Role,
-{
-    let packet = message.to_pnet_tcp_packet();
-    channel.send(packet);
-    A::new()
-}
-
-pub fn offer_two<R1, R2, M1, M2, A1, A2>(
-    _o: OfferTwo<R2, M1, M2, A1, A2>,
-    channel: &mut TransportChannel,
-    picker: Box<dyn Fn() -> bool>,
-) -> Branch<(M1, A1), (M2, A2)>
-where
-    R1: Role,
-    R2: Role,
-    M1: Message + for<'a> PNetTcpMessage<'a>,
-    M2: Message + for<'a> PNetTcpMessage<'a>,
-    A1: Action,
-    A2: Action,
-{
-    let choice = picker();
-    match choice {
-        true => Branch::Left((M1::from_pnet_tcp_packet(channel.recv()), A1::new())),
-        false => Branch::Right((M2::from_pnet_tcp_packet(channel.recv()), A2::new())),
-    }
-}
-
-#[must_use]
-pub fn select_left<R1, R2, M1, M2, A1, A2>(
-    _o: SelectTwo<R2, M1, M2, A1, A2>,
-    channel: &mut TransportChannel,
-    message: M1,
-) -> A1
-where
-    R1: Role,
-    R2: Role,
-    M1: Message + for<'a> PNetTcpMessage<'a>,
-    M2: Message + for<'a> PNetTcpMessage<'a>,
-    A1: Action,
-    A2: Action,
-{
-    channel.send(message.to_pnet_tcp_packet());
-    A1::new()
-}
-
-#[must_use]
-pub fn select_right<R1, R2, M1, M2, A1, A2>(
-    _o: SelectTwo<R2, M1, M2, A1, A2>,
-    channel: &mut TransportChannel,
-    message: M2,
-) -> A2
-where
-    R1: Role,
-    R2: Role,
-    M1: Message + for<'a> PNetTcpMessage<'a>,
-    M2: Message + for<'a> PNetTcpMessage<'a>,
-    A1: Action,
-    A2: Action,
-{
-    channel.send(message.to_pnet_tcp_packet());
-    A2::new()
-}
-
-mod tcp_messages;
-mod pnet_channel;
 mod crossbeam;
+mod net_channel;

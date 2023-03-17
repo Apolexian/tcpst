@@ -2,9 +2,7 @@ use std::marker::PhantomData;
 
 use crossbeam_channel::{Receiver, Sender};
 
-use crate::{
-    Message, Role,
-};
+use crate::Role;
 
 #[derive(Clone)]
 pub struct CrossBeamRoleChannel<R1, R2>
@@ -31,31 +29,3 @@ where
     }
 }
 
-pub trait CBMessage: Message {
-    fn from_slice(_slice: Vec<u8>) -> Self;
-    fn to_slice(&self) -> Vec<u8>;
-}
-
-pub struct CBAck {}
-impl Message for CBAck {}
-impl CBMessage for CBAck {
-    fn from_slice(_slice: Vec<u8>) -> Self {
-        CBAck {}
-    }
-
-    fn to_slice(&self) -> Vec<u8> {
-        vec![]
-    }
-}
-
-pub struct CBSyn {}
-impl Message for CBSyn {}
-impl CBMessage for CBSyn {
-    fn from_slice(_slice: Vec<u8>) -> Self {
-        CBSyn {}
-    }
-
-    fn to_slice(&self) -> Vec<u8> {
-        vec![]
-    }
-}
