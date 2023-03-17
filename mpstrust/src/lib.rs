@@ -199,5 +199,5 @@ pub trait SessionTypedChannel<R1, R2> {
     fn close(self, end: End);
 }
 
-mod crossbeam;
-mod net_channel;
+pub mod crossbeam;
+pub mod net_channel;
