@@ -1,6 +1,19 @@
 use etherparse::{Ipv4HeaderSlice, TcpHeaderSlice};
 use mpstrust::{net_channel::NetChannel, Role};
-use std::io;
+use pnet::packet::ip::IpNextHeaderProtocols;
+use pnet::packet::udp::MutableUdpPacket;
+use pnet::packet::{MutablePacket, Packet};
+use pnet::transport::tcp_packet_iter;
+use pnet::transport::TransportChannelType::Layer4;
+use pnet::transport::TransportProtocol::Ipv4;
+use pnet::transport::{transport_channel, udp_packet_iter};
+use smoltcp::phy::wait as phy_wait;
+use smoltcp::phy::RawSocket;
+use smoltcp::phy::{Device, RxToken};
+use smoltcp::time::Instant;
+use smoltcp::wire::{EthernetFrame, PrettyPrinter};
+use std::os::unix::io::AsRawFd;
+use std::{env, io};
 use tun_tap::Iface;
 
 const FRAME_ETHER_TYPE_START: usize = 2;
@@ -57,35 +70,31 @@ impl Role for RoleServerUser {}
 pub struct RoleServerClient {}
 impl Role for RoleServerClient {}
 
-fn main() -> io::Result<()> {
-    let nic = Iface::new("tun0", tun_tap::Mode::Tun)?;
-    // let st_network_channel = NetChannel::<RoleServerSystem, RoleServerClient>::new(nic);
+fn main() {
+    let protocol = Layer4(Ipv4(IpNextHeaderProtocols::Tcp));
+    let (_, mut rx) = match transport_channel(4096, protocol) {
+        Ok((tx, rx)) => (tx, rx),
+        Err(e) => panic!(
+            "An error occurred when creating the transport channel: {}",
+            e
+        ),
+    };
 
-    let mut buf = [0u8; 1504];
+    let mut iter = tcp_packet_iter(&mut rx);
     loop {
-        // based on section 3.2 Frame format
-        // https://www.kernel.org/doc/Documentation/networking/tuntap.txt
-        let read = nic.recv(&mut buf[..])?;
-        let ether_type: EtherType =
-            u16::from_be_bytes([buf[FRAME_ETHER_TYPE_START], buf[FRAME_ETHER_TYPE_END]]).into();
-
-        // Ignore anything that is not IPv4
-        if ether_type != EtherType::IPv4 {
-            continue;
+        match iter.next() {
+            Ok((packet, addr)) => {
+                let parsed = smoltcp::wire::TcpPacket::new_checked(packet.packet()).unwrap();
+                // filter out other broadcast traffic
+                if !(parsed.dst_port() == 541) {
+                    continue;
+                }
+                eprintln!("{:?}", parsed.syn());
+            }
+            Err(e) => {
+                // If an error occurs, we can handle it here
+                panic!("An error occurred while reading: {}", e);
+            }
         }
-
-        let ipv4_header_slice = Ipv4HeaderSlice::from_slice(&buf[FRAME_RAW_PROTO_START..read])
-            .expect("Failed to parse IPv4 header slice");
-        let protocol: ProtocolType = ipv4_header_slice.protocol().into();
-
-        // ignore anything that is not a TCP packet
-        if protocol != ProtocolType::TCP {
-            continue;
-        }
-
-        let tcp_header_slice =
-            TcpHeaderSlice::from_slice(&buf[4 + ipv4_header_slice.slice().len()..])
-                .expect("Failed to parse TCP header slice");
-        eprintln!("{:?}", tcp_header_slice.options());
     }
 }
