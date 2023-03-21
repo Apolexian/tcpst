@@ -1,11 +1,17 @@
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::restriction)]
+#![warn(clippy::nursery)]
+#![warn(clippy::cargo)]
+
 use std::net::{IpAddr, Ipv4Addr};
 use std::ops::Add;
 
 use mpstrust::Role;
-use pnet::packet::ip::IpNextHeaderProtocols::{self, Tcp};
-use pnet::packet::{MutablePacket, Packet};
+use pnet::packet::ip::IpNextHeaderProtocols::{self};
+use pnet::packet::{Packet};
 
-use pnet::packet::tcp::{ipv4_checksum, MutableTcpPacket, TcpFlags, TcpPacket};
+use pnet::packet::tcp::{ipv4_checksum, MutableTcpPacket, TcpFlags};
 use pnet::transport::tcp_packet_iter;
 use pnet::transport::transport_channel;
 use pnet::transport::TransportChannelType::Layer4;
@@ -53,7 +59,7 @@ fn main() {
         match iter.next() {
             Ok((packet, _)) => {
                 // ignore packets that are not for us
-                if !(packet.get_destination() == 49155) {
+                if packet.get_destination() != 49155 {
                     continue;
                 }
 
