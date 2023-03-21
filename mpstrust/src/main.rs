@@ -19,13 +19,13 @@ use pnet::transport::TransportProtocol::Ipv4;
 use raw_socket::{Domain, Protocol, Type};
 extern crate pnet;
 
-pub struct RoleServerSystem {}
+pub struct RoleServerSystem;
 impl Role for RoleServerSystem {}
 
-pub struct RoleServerUser {}
+pub struct RoleServerUser;
 impl Role for RoleServerUser {}
 
-pub struct RoleServerClient {}
+pub struct RoleServerClient;
 impl Role for RoleServerClient {}
 
 fn main() {
@@ -33,8 +33,8 @@ fn main() {
     let local_addr = Ipv4Addr::new(127, 0, 0, 1);
     let remote_addr_v4 = IpAddr::V4(remote_addr);
 
-    let _destination_port = 40000_u16;
-    let source_port = 49155_u16;
+    let _destination_port = 40000u16;
+    let source_port = 49155u16;
 
     // Silly trick to make the kernel not process TCP packets
     // this is used in combination with `iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP`,
@@ -67,7 +67,7 @@ fn main() {
                 if packet.get_flags() == TcpFlags::SYN {
                     // construct SYN-ACK packet
                     let mut vec: Vec<u8> = vec![0; packet.packet().len()];
-                    let mut new_packet = MutableTcpPacket::new(&mut vec[..]).unwrap();
+                    let mut new_packet = MutableTcpPacket::new(&mut vec).unwrap();
                     new_packet.set_flags(TcpFlags::ACK | TcpFlags::SYN);
                     new_packet.set_sequence(1);
                     new_packet.set_acknowledgement(packet.get_sequence().add(1));
@@ -82,12 +82,12 @@ fn main() {
                     // Send the packet
                     match tx.send_to(new_packet, remote_addr_v4) {
                         Ok(n) => assert_eq!(n, packet.packet().len()),
-                        Err(e) => panic!("failed to send packet: {}", e),
+                        Err(e) => panic!("failed to send packet: {e}"),
                     }
                 } else {
                     // whenever we get any other packet we will just FIN-ACK
                     let mut vec: Vec<u8> = vec![0; packet.packet().len()];
-                    let mut new_packet = MutableTcpPacket::new(&mut vec[..]).unwrap();
+                    let mut new_packet = MutableTcpPacket::new(&mut vec).unwrap();
                     new_packet.set_flags(TcpFlags::ACK | TcpFlags::FIN);
                     new_packet.set_sequence(packet.get_acknowledgement());
                     new_packet.set_acknowledgement(packet.get_sequence().add(1));
@@ -101,7 +101,7 @@ fn main() {
                     // Send the packet
                     match tx.send_to(new_packet, remote_addr_v4) {
                         Ok(n) => assert_eq!(n, packet.packet().len()),
-                        Err(e) => panic!("failed to send packet: {}", e),
+                        Err(e) => panic!("failed to send packet: {e}"),
                     }
                     // Get an ACK for our FIN-ACK and ACK it
                     // Note that the default behaviour of netcat is to stay in a
@@ -113,7 +113,7 @@ fn main() {
                         Ok((packet, _)) => {
                             if packet.get_flags() & TcpFlags::ACK == TcpFlags::ACK {
                                 let mut vec: Vec<u8> = vec![0; packet.packet().len()];
-                                let mut new_packet = MutableTcpPacket::new(&mut vec[..]).unwrap();
+                                let mut new_packet = MutableTcpPacket::new(&mut vec).unwrap();
                                 new_packet.set_flags(TcpFlags::ACK);
                                 new_packet.set_sequence(packet.get_acknowledgement());
                                 new_packet.set_acknowledgement(packet.get_sequence().add(1));
@@ -133,18 +133,18 @@ fn main() {
                                         println!("Connection closed successfully");
                                         return;
                                     }
-                                    Err(e) => panic!("failed to send packet: {}", e),
+                                    Err(e) => panic!("failed to send packet: {e}"),
                                 }
                             }
                         }
                         Err(e) => {
-                            panic!("An error occurred while reading: {}", e);
+                            panic!("An error occurred while reading: {e}");
                         }
                     }
                 }
             }
             Err(e) => {
-                panic!("An error occurred while reading: {}", e);
+                panic!("An error occurred while reading: {e}");
             }
         }
     }
