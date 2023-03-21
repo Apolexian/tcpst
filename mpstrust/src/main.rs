@@ -78,7 +78,6 @@ fn main() {
                     let checksum =
                         ipv4_checksum(&new_packet.to_immutable(), &local_addr, &remote_addr);
                     new_packet.set_checksum(checksum);
-
                     // Send the packet
                     match tx.send_to(new_packet, remote_addr_v4) {
                         Ok(n) => assert_eq!(n, packet.packet().len()),

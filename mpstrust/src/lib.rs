@@ -11,7 +11,7 @@ pub trait Action: Send {
 pub trait Role {}
 
 pub trait Message: Send {
-    fn to_net_representation(&self) -> Vec<u8>;
+    fn to_net_representation(self) -> Vec<u8>;
     fn from_net_representation(packet: Vec<u8>) -> Self;
 }
 
