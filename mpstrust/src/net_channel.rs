@@ -22,6 +22,7 @@ where
     R1: Role,
     R2: Role,
 {
+    #[must_use]
     fn offer_one<M, A>(&mut self, _o: crate::OfferOne<R2, M, A>) -> (M, A)
     where
         M: crate::Message + 'static,
@@ -29,14 +30,20 @@ where
         R1: Role,
         R2: Role,
     {
-        match self.rx.next() {
-            Ok((packet, _)) => {
-                let slice = packet.packet().to_vec();
-                let message = M::from_net_representation(slice);
-                return (message, A::new());
-            }
-            Err(e) => {
-                panic!("An error occurred while reading: {e}");
+        loop {
+            match self.rx.next() {
+                Ok((packet, _)) => {
+                    // ignore packets that are not for us
+                    if packet.get_destination() != 49155 {
+                        continue;
+                    }
+                    let slice = packet.packet().to_vec();
+                    let message = M::from_net_representation(slice);
+                    return (message, A::new());
+                }
+                Err(e) => {
+                    panic!("An error occurred while reading: {e}");
+                }
             }
         }
     }
@@ -76,24 +83,37 @@ where
     {
         let choice = picker();
         match choice {
-            true => match self.rx.next() {
-                Ok((packet, _)) => {
-                    let slice = packet.packet().to_vec();
-                    let message = M1::from_net_representation(slice);
-                    return Branch::Left((message, A1::new()));
+            true => {
+                loop {
+                    match self.rx.next() {
+                        Ok((packet, _)) => {
+                            // ignore packets that are not for us
+                            if packet.get_destination() != 49155 {
+                                continue;
+                            }
+                            let slice = packet.packet().to_vec();
+                            let message = M1::from_net_representation(slice);
+                            return Branch::Left((message, A1::new()));
+                        }
+                        Err(e) => {
+                            panic!("An error occurred while reading: {e}");
+                        }
+                    }
                 }
-                Err(e) => {
-                    panic!("An error occurred while reading: {e}");
-                }
-            },
-            false => match self.rx.next() {
-                Ok((packet, _)) => {
-                    let slice = packet.packet().to_vec();
-                    let message = M2::from_net_representation(slice);
-                    return Branch::Right((message, A2::new()));
-                }
-                Err(e) => {
-                    panic!("An error occurred while reading: {e}");
+            }
+            false => loop {
+                match self.rx.next() {
+                    Ok((packet, _)) => {
+                        if packet.get_destination() != 49155 {
+                            continue;
+                        }
+                        let slice = packet.packet().to_vec();
+                        let message = M2::from_net_representation(slice);
+                        return Branch::Right((message, A2::new()));
+                    }
+                    Err(e) => {
+                        panic!("An error occurred while reading: {e}");
+                    }
                 }
             },
         }
@@ -176,10 +196,9 @@ where
 }
 
 pub struct Syn {
-    packet: Vec<u8>,
+    pub packet: Vec<u8>,
 }
-pub trait SynMessage: Message {}
-impl SynMessage for Syn {}
+
 impl Message for Syn {
     fn to_net_representation(self) -> Vec<u8> {
         self.packet
@@ -187,5 +206,33 @@ impl Message for Syn {
 
     fn from_net_representation(packet: Vec<u8>) -> Self {
         Syn { packet }
+    }
+}
+
+pub struct SynAck {
+    pub packet: Vec<u8>,
+}
+
+impl Message for SynAck {
+    fn to_net_representation(self) -> Vec<u8> {
+        self.packet
+    }
+
+    fn from_net_representation(packet: Vec<u8>) -> Self {
+        SynAck { packet }
+    }
+}
+
+pub struct Ack {
+    pub packet: Vec<u8>,
+}
+
+impl Message for Ack {
+    fn to_net_representation(self) -> Vec<u8> {
+        self.packet
+    }
+
+    fn from_net_representation(packet: Vec<u8>) -> Self {
+        Ack { packet }
     }
 }

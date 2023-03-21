@@ -7,11 +7,12 @@
 use std::net::{IpAddr, Ipv4Addr};
 use std::ops::Add;
 
-use mpstrust::Role;
+use mpstrust::net_channel::{self, NetChannel, Syn, SynAck, Ack};
+use mpstrust::{Action, End, OfferOne, Role, SelectOne, SessionTypedChannel};
 use pnet::packet::ip::IpNextHeaderProtocols::{self};
-use pnet::packet::{Packet};
+use pnet::packet::Packet;
 
-use pnet::packet::tcp::{ipv4_checksum, MutableTcpPacket, TcpFlags};
+use pnet::packet::tcp::{ipv4_checksum, MutableTcpPacket, TcpFlags, TcpPacket};
 use pnet::transport::tcp_packet_iter;
 use pnet::transport::transport_channel;
 use pnet::transport::TransportChannelType::Layer4;
@@ -54,30 +55,49 @@ fn main() {
         ),
     };
 
+    type ServerSessionType =
+        OfferOne<RoleServerClient, Syn, SelectOne<RoleServerClient, SynAck, OfferOne<RoleServerClient, Ack, End>>>;
+    let st = ServerSessionType::new();
+
     let mut iter = tcp_packet_iter(&mut rx);
+    let mut net_channel =
+        NetChannel::<RoleServerSystem, RoleServerClient>::new(iter, tx, remote_addr);
+
+    let (syn_message, cont) = net_channel.offer_one(st);
+    let packet = TcpPacket::new(&syn_message.packet).unwrap();
+    let mut vec: Vec<u8> = vec![0; syn_message.packet.len()];
+    let mut new_packet = MutableTcpPacket::new(&mut vec).unwrap();
+    new_packet.set_flags(TcpFlags::ACK | TcpFlags::SYN);
+    new_packet.set_sequence(1);
+    new_packet.set_acknowledgement(packet.get_sequence().add(1));
+    new_packet.set_source(packet.get_destination());
+    new_packet.set_destination(packet.get_source());
+    new_packet.set_window(packet.get_window());
+    new_packet.set_data_offset(packet.get_data_offset());
+    let checksum = ipv4_checksum(&new_packet.to_immutable(), &local_addr, &remote_addr);
+    new_packet.set_checksum(checksum);
+    let new_packet_slice = new_packet.packet();
+    let cont = net_channel.select_one(
+        cont,
+        SynAck {
+            packet: new_packet_slice.to_vec(),
+        },
+    );
+
+    let (ack_message, cont) = net_channel.offer_one(cont);
+    let packet = TcpPacket::new(&syn_message.packet).unwrap();
+    // construst FIN-ACK packet...
+
+    /** 
     loop {
         match iter.next() {
             Ok((packet, _)) => {
-                // ignore packets that are not for us
-                if packet.get_destination() != 49155 {
-                    continue;
-                }
-
                 // got a SYN, start handshake
                 if packet.get_flags() == TcpFlags::SYN {
                     // construct SYN-ACK packet
                     let mut vec: Vec<u8> = vec![0; packet.packet().len()];
                     let mut new_packet = MutableTcpPacket::new(&mut vec).unwrap();
-                    new_packet.set_flags(TcpFlags::ACK | TcpFlags::SYN);
-                    new_packet.set_sequence(1);
-                    new_packet.set_acknowledgement(packet.get_sequence().add(1));
-                    new_packet.set_source(packet.get_destination());
-                    new_packet.set_destination(packet.get_source());
-                    new_packet.set_window(packet.get_window());
-                    new_packet.set_data_offset(packet.get_data_offset());
-                    let checksum =
-                        ipv4_checksum(&new_packet.to_immutable(), &local_addr, &remote_addr);
-                    new_packet.set_checksum(checksum);
+
                     // Send the packet
                     match tx.send_to(new_packet, remote_addr_v4) {
                         Ok(n) => assert_eq!(n, packet.packet().len()),
@@ -126,7 +146,7 @@ fn main() {
                                     &remote_addr,
                                 );
                                 new_packet.set_checksum(checksum);
-                                
+
                                 match tx.send_to(new_packet, remote_addr_v4) {
                                     Ok(_) => {
                                         println!("Connection closed successfully");
@@ -147,4 +167,5 @@ fn main() {
             }
         }
     }
+    */
 }
