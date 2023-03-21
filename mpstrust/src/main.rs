@@ -49,20 +49,17 @@ fn main() {
     };
 
     let mut iter = tcp_packet_iter(&mut rx);
-    let got_syn = false;
     loop {
         match iter.next() {
             Ok((packet, _)) => {
-                // if packet is not for us then something went wrong
+                // ignore packets that are not for us
                 if !(packet.get_destination() == 49155) {
                     continue;
                 }
-                if !got_syn {
-                    eprintln!("got packet...");
-                    eprintln!("{:?}", packet.get_destination());
-                    eprintln!("{:?}", packet.get_sequence());
-                    eprintln!("{:?}", packet.get_source());
 
+                // got a SYN, start handshake
+                if packet.get_flags() == TcpFlags::SYN {
+                    // construct SYN-ACK packet
                     let mut vec: Vec<u8> = vec![0; packet.packet().len()];
                     let mut new_packet = MutableTcpPacket::new(&mut vec[..]).unwrap();
                     new_packet.set_flags(TcpFlags::ACK | TcpFlags::SYN);
@@ -70,8 +67,8 @@ fn main() {
                     new_packet.set_acknowledgement(packet.get_sequence().add(1));
                     new_packet.set_source(packet.get_destination());
                     new_packet.set_destination(packet.get_source());
-                    new_packet.set_window(4015);
-                    new_packet.set_data_offset(8);
+                    new_packet.set_window(packet.get_window());
+                    new_packet.set_data_offset(packet.get_data_offset());
                     let checksum =
                         ipv4_checksum(&new_packet.to_immutable(), &local_addr, &remote_addr);
                     new_packet.set_checksum(checksum);
@@ -82,11 +79,65 @@ fn main() {
                         Err(e) => panic!("failed to send packet: {}", e),
                     }
                 } else {
-                    eprintln!("todo!");
+                    // whenever we get any other packet we will just FIN-ACK
+                    let mut vec: Vec<u8> = vec![0; packet.packet().len()];
+                    let mut new_packet = MutableTcpPacket::new(&mut vec[..]).unwrap();
+                    new_packet.set_flags(TcpFlags::ACK | TcpFlags::FIN);
+                    new_packet.set_sequence(packet.get_acknowledgement());
+                    new_packet.set_acknowledgement(packet.get_sequence().add(1));
+                    new_packet.set_source(packet.get_destination());
+                    new_packet.set_destination(packet.get_source());
+                    new_packet.set_window(packet.get_window());
+                    new_packet.set_data_offset(packet.get_data_offset());
+                    let checksum =
+                        ipv4_checksum(&new_packet.to_immutable(), &local_addr, &remote_addr);
+                    new_packet.set_checksum(checksum);
+                    // Send the packet
+                    match tx.send_to(new_packet, remote_addr_v4) {
+                        Ok(n) => assert_eq!(n, packet.packet().len()),
+                        Err(e) => panic!("failed to send packet: {}", e),
+                    }
+                    // Get an ACK for our FIN-ACK and ACK it
+                    // Note that the default behaviour of netcat is to stay in a
+                    // half-open connection until you close netcat's stdin (Ctrl-D).
+                    // Once netcat's stdin is closed it will issue the final FIN.
+                    // We do not handle this here and leave the example content
+                    // with just issuing its FIN-ACK.
+                    match iter.next() {
+                        Ok((packet, _)) => {
+                            if packet.get_flags() & TcpFlags::ACK == TcpFlags::ACK {
+                                let mut vec: Vec<u8> = vec![0; packet.packet().len()];
+                                let mut new_packet = MutableTcpPacket::new(&mut vec[..]).unwrap();
+                                new_packet.set_flags(TcpFlags::ACK);
+                                new_packet.set_sequence(packet.get_acknowledgement());
+                                new_packet.set_acknowledgement(packet.get_sequence().add(1));
+                                new_packet.set_source(packet.get_destination());
+                                new_packet.set_destination(packet.get_source());
+                                new_packet.set_window(packet.get_window());
+                                new_packet.set_data_offset(packet.get_data_offset());
+                                let checksum = ipv4_checksum(
+                                    &new_packet.to_immutable(),
+                                    &local_addr,
+                                    &remote_addr,
+                                );
+                                new_packet.set_checksum(checksum);
+                                
+                                match tx.send_to(new_packet, remote_addr_v4) {
+                                    Ok(_) => {
+                                        println!("Connection closed successfully");
+                                        return;
+                                    }
+                                    Err(e) => panic!("failed to send packet: {}", e),
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            panic!("An error occurred while reading: {}", e);
+                        }
+                    }
                 }
             }
             Err(e) => {
-                // If an error occurs, we can handle it here
                 panic!("An error occurred while reading: {}", e);
             }
         }
