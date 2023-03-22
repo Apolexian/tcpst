@@ -1,21 +1,31 @@
-use crate::{Branch, Role, SessionTypedChannel};
-use std::marker::PhantomData;
-use tun_tap::Iface;
+use pnet::{
+    packet::{tcp::MutableTcpPacket, Packet},
+    transport::{TcpTransportChannelIterator, TransportSender},
+};
 
-pub struct NetChannel<R1, R2>
+use crate::{Branch, Message, Role, SessionTypedChannel};
+use std::{marker::PhantomData, net::Ipv4Addr};
+
+/// [NetChannel] is a session-typed communication channel that uses
+/// libpnet [TransportSender] and [TcpTransportChannelIterator] under the hood.
+/// [NetChannel] behaves as any other session-typed channels and implements [SessionTypedChannel].
+pub struct NetChannel<'a, R1, R2>
 where
     R1: Role,
     R2: Role,
 {
+    rx: TcpTransportChannelIterator<'a>,
+    tx: TransportSender,
+    remote_addr: Ipv4Addr,
     phantom: PhantomData<(R1, R2)>,
-    nic: Iface,
 }
 
-impl<R1, R2> SessionTypedChannel<R1, R2> for NetChannel<R1, R2>
+impl<R1, R2> SessionTypedChannel<R1, R2> for NetChannel<'_, R1, R2>
 where
     R1: Role,
     R2: Role,
 {
+    #[must_use]
     fn offer_one<M, A>(&mut self, _o: crate::OfferOne<R2, M, A>) -> (M, A)
     where
         M: crate::Message + 'static,
@@ -23,10 +33,22 @@ where
         R1: Role,
         R2: Role,
     {
-        let mut buf = [0u8; 1500];
-        let read = self.nic.recv(&mut buf).unwrap();
-        let message = M::from_net_representation(buf[..read].to_vec());
-        (message, A::new())
+        loop {
+            match self.rx.next() {
+                Ok((packet, _)) => {
+                    // ignore packets that are not for us
+                    if packet.get_destination() != 49155 {
+                        continue;
+                    }
+                    let slice = packet.packet().to_vec();
+                    let message = M::from_net_representation(slice);
+                    return (message, A::new());
+                }
+                Err(e) => {
+                    panic!("An error occurred while reading: {e}");
+                }
+            }
+        }
     }
 
     fn select_one<M, A>(&mut self, _o: crate::SelectOne<R2, M, A>, message: M) -> A
@@ -36,9 +58,17 @@ where
         R1: Role,
         R2: Role,
     {
-        let packet = message.to_net_representation();
-        self.nic.send(&packet).unwrap();
-        A::new()
+        let mut packet = message.to_net_representation();
+        let packet_inner = MutableTcpPacket::new(&mut packet[..]).unwrap();
+        match self
+            .tx
+            .send_to(packet_inner, std::net::IpAddr::V4(self.remote_addr))
+        {
+            Ok(_) => {
+                return A::new();
+            }
+            Err(e) => panic!("failed to send packet: {e}"),
+        }
     }
 
     fn offer_two<M1, M2, A1, A2>(
@@ -55,18 +85,40 @@ where
         A2: crate::Action,
     {
         let choice = picker();
-        let mut buf = [0u8; 1500];
         match choice {
             true => {
-                let read = self.nic.recv(&mut buf).unwrap();
-                let message = M1::from_net_representation(buf[..read].to_vec());
-                Branch::Left((message, A1::new()))
+                loop {
+                    match self.rx.next() {
+                        Ok((packet, _)) => {
+                            // ignore packets that are not for us
+                            if packet.get_destination() != 49155 {
+                                continue;
+                            }
+                            let slice = packet.packet().to_vec();
+                            let message = M1::from_net_representation(slice);
+                            return Branch::Left((message, A1::new()));
+                        }
+                        Err(e) => {
+                            panic!("An error occurred while reading: {e}");
+                        }
+                    }
+                }
             }
-            false => {
-                let read = self.nic.recv(&mut buf).unwrap();
-                let message = M2::from_net_representation(buf[..read].to_vec());
-                Branch::Right((message, A2::new()))
-            }
+            false => loop {
+                match self.rx.next() {
+                    Ok((packet, _)) => {
+                        if packet.get_destination() != 49155 {
+                            continue;
+                        }
+                        let slice = packet.packet().to_vec();
+                        let message = M2::from_net_representation(slice);
+                        return Branch::Right((message, A2::new()));
+                    }
+                    Err(e) => {
+                        panic!("An error occurred while reading: {e}");
+                    }
+                }
+            },
         }
     }
 
@@ -83,9 +135,17 @@ where
         A1: crate::Action,
         A2: crate::Action,
     {
-        let packet = message.to_net_representation();
-        self.nic.send(&packet).unwrap();
-        A1::new()
+        let mut packet = message.to_net_representation();
+        let packet_inner = MutableTcpPacket::new(&mut packet[..]).unwrap();
+        match self
+            .tx
+            .send_to(packet_inner, std::net::IpAddr::V4(self.remote_addr))
+        {
+            Ok(_) => {
+                return A1::new();
+            }
+            Err(e) => panic!("failed to send packet: {e}"),
+        }
     }
 
     fn select_right<M1, M2, A1, A2>(
@@ -101,9 +161,17 @@ where
         A1: crate::Action,
         A2: crate::Action,
     {
-        let packet = message.to_net_representation();
-        self.nic.send(&packet).unwrap();
-        A2::new()
+        let mut packet = message.to_net_representation();
+        let packet_inner = MutableTcpPacket::new(&mut packet[..]).unwrap();
+        match self
+            .tx
+            .send_to(packet_inner, std::net::IpAddr::V4(self.remote_addr))
+        {
+            Ok(_) => {
+                return A2::new();
+            }
+            Err(e) => panic!("failed to send packet: {e}"),
+        }
     }
 
     fn close(self, _end: crate::End) {
@@ -111,15 +179,109 @@ where
     }
 }
 
-impl<R1, R2> NetChannel<R1, R2>
+impl<'a, R1, R2> NetChannel<'a, R1, R2>
 where
     R1: Role,
     R2: Role,
 {
-    pub fn new(nic: Iface) -> Self {
+    pub fn new(
+        rx: TcpTransportChannelIterator<'a>,
+        tx: TransportSender,
+        remote_addr: Ipv4Addr,
+    ) -> Self {
         NetChannel {
+            rx,
+            tx,
+            remote_addr,
             phantom: PhantomData::default(),
-            nic,
         }
+    }
+}
+
+/// [Syn] is the specific message type for a packet with
+/// the SYN flag set. We assume a well-behaved parser and
+/// leave the parsing implementation to the user. Hence,
+/// this demonstration has an extremely simplistic layout of
+/// message structs and does **no** error handling.
+/// Hence, it is possible to construct a [Syn] message out of
+/// a wrong packet. This should ideally be handled by checking
+/// that correct flags are set and returning errors.
+pub struct Syn {
+    pub packet: Vec<u8>,
+}
+
+impl Message for Syn {
+    fn to_net_representation(self) -> Vec<u8> {
+        self.packet
+    }
+
+    fn from_net_representation(packet: Vec<u8>) -> Self {
+        Syn { packet }
+    }
+}
+
+/// [SynAck] is the specific message type for a packet with
+/// the SYN flag set. We assume a well-behaved parser and
+/// leave the parsing implementation to the user. Hence,
+/// this demonstration has an extremely simplistic layout of
+/// message structs and does **no** error handling.
+/// Hence, it is possible to construct a [SynAck] message out of
+/// a wrong packet. This should ideally be handled by checking
+/// that correct flags are set and returning errors.
+pub struct SynAck {
+    pub packet: Vec<u8>,
+}
+
+impl Message for SynAck {
+    fn to_net_representation(self) -> Vec<u8> {
+        self.packet
+    }
+
+    fn from_net_representation(packet: Vec<u8>) -> Self {
+        SynAck { packet }
+    }
+}
+
+/// [Ack] is the specific message type for a packet with
+/// the SYN flag set. We assume a well-behaved parser and
+/// leave the parsing implementation to the user. Hence,
+/// this demonstration has an extremely simplistic layout of
+/// message structs and does **no** error handling.
+/// Hence, it is possible to construct a [Ack] message out of
+/// a wrong packet. This should ideally be handled by checking
+/// that correct flags are set and returning errors.
+pub struct Ack {
+    pub packet: Vec<u8>,
+}
+
+impl Message for Ack {
+    fn to_net_representation(self) -> Vec<u8> {
+        self.packet
+    }
+
+    fn from_net_representation(packet: Vec<u8>) -> Self {
+        Ack { packet }
+    }
+}
+
+/// [FinAck] is the specific message type for a packet with
+/// the SYN flag set. We assume a well-behaved parser and
+/// leave the parsing implementation to the user. Hence,
+/// this demonstration has an extremely simplistic layout of
+/// message structs and does **no** error handling.
+/// Hence, it is possible to construct a [FinAck] message out of
+/// a wrong packet. This should ideally be handled by checking
+/// that correct flags are set and returning errors.
+pub struct FinAck {
+    pub packet: Vec<u8>,
+}
+
+impl Message for FinAck {
+    fn to_net_representation(self) -> Vec<u8> {
+        self.packet
+    }
+
+    fn from_net_representation(packet: Vec<u8>) -> Self {
+        FinAck { packet }
     }
 }
