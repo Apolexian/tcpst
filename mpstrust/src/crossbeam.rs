@@ -2,8 +2,10 @@ use std::marker::PhantomData;
 
 use crossbeam_channel::{Receiver, Sender};
 
-use crate::Role;
+use crate::{Branch, Message, Role, SessionTypedChannel};
 
+/// [CrossBeamRoleChannel] is a session-typed communication channel that uses crossbeam channels under the hood.
+/// [CrossBeamRoleChannel] behaves as any other session-typed channels and implements [SessionTypedChannel].
 #[derive(Clone)]
 pub struct CrossBeamRoleChannel<R1, R2>
 where
@@ -29,3 +31,144 @@ where
     }
 }
 
+impl<R1, R2> SessionTypedChannel<R1, R2> for CrossBeamRoleChannel<R1, R2>
+where
+    R1: Role,
+    R2: Role,
+{
+    fn offer_one<M, A>(&mut self, _o: crate::OfferOne<R2, M, A>) -> (M, A)
+    where
+        M: crate::Message + 'static,
+        A: crate::Action + 'static,
+        R1: Role,
+        R2: Role,
+    {
+        (
+            M::from_net_representation(self.recv.recv().unwrap()),
+            A::new(),
+        )
+    }
+
+    fn select_one<M, A>(&mut self, _o: crate::SelectOne<R2, M, A>, message: M) -> A
+    where
+        M: crate::Message,
+        A: crate::Action,
+        R1: Role,
+        R2: Role,
+    {
+        self.send.send(message.to_net_representation()).unwrap();
+        A::new()
+    }
+
+    fn offer_two<M1, M2, A1, A2>(
+        &mut self,
+        _o: crate::OfferTwo<R2, M1, M2, A1, A2>,
+        picker: Box<dyn Fn() -> bool>,
+    ) -> crate::Branch<(M1, A1), (M2, A2)>
+    where
+        R1: Role,
+        R2: Role,
+        M1: crate::Message + 'static,
+        M2: crate::Message + 'static,
+        A1: crate::Action,
+        A2: crate::Action,
+    {
+        let choice = picker();
+        match choice {
+            true => Branch::Left((
+                M1::from_net_representation(self.recv.recv().unwrap()),
+                A1::new(),
+            )),
+            false => Branch::Right((
+                M2::from_net_representation(self.recv.recv().unwrap()),
+                A2::new(),
+            )),
+        }
+    }
+
+    fn select_left<M1, M2, A1, A2>(
+        &mut self,
+        _o: crate::SelectTwo<R2, M1, M2, A1, A2>,
+        message: M1,
+    ) -> A1
+    where
+        R1: Role,
+        R2: Role,
+        M1: crate::Message + 'static,
+        M2: crate::Message + 'static,
+        A1: crate::Action,
+        A2: crate::Action,
+    {
+        self.send.send(message.to_net_representation()).unwrap();
+        A1::new()
+    }
+
+    fn select_right<M1, M2, A1, A2>(
+        &mut self,
+        _o: crate::SelectTwo<R2, M1, M2, A1, A2>,
+        message: M2,
+    ) -> A2
+    where
+        R1: Role,
+        R2: Role,
+        M1: crate::Message + 'static,
+        M2: crate::Message + 'static,
+        A1: crate::Action,
+        A2: crate::Action,
+    {
+        self.send.send(message.to_net_representation()).unwrap();
+        A2::new()
+    }
+
+    fn close(self, _end: crate::End) {
+        drop(self);
+    }
+}
+
+pub struct Open {}
+
+impl Message for Open {
+    fn to_net_representation(self) -> Vec<u8> {
+        vec![]
+    }
+
+    fn from_net_representation(_packet: Vec<u8>) -> Self {
+        Open {}
+    }
+}
+
+pub struct TcbCreated {}
+
+impl Message for TcbCreated {
+    fn to_net_representation(self) -> Vec<u8> {
+        vec![]
+    }
+
+    fn from_net_representation(_packet: Vec<u8>) -> Self {
+        TcbCreated {}
+    }
+}
+
+pub struct Close {}
+
+impl Message for Close {
+    fn to_net_representation(self) -> Vec<u8> {
+        vec![]
+    }
+
+    fn from_net_representation(_packet: Vec<u8>) -> Self {
+        Close {}
+    }
+}
+
+pub struct Connected {}
+
+impl Message for Connected {
+    fn to_net_representation(self) -> Vec<u8> {
+        vec![]
+    }
+
+    fn from_net_representation(_packet: Vec<u8>) -> Self {
+        Connected {}
+    }
+}
