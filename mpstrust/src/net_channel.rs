@@ -6,6 +6,9 @@ use pnet::{
 use crate::{Branch, Message, Role, SessionTypedChannel};
 use std::{marker::PhantomData, net::Ipv4Addr};
 
+/// [NetChannel] is a session-typed communication channel that uses
+/// libpnet [TransportSender] and [TcpTransportChannelIterator] under the hood.
+/// [NetChannel] behaves as any other session-typed channels and implements [SessionTypedChannel].
 pub struct NetChannel<'a, R1, R2>
 where
     R1: Role,
@@ -195,6 +198,14 @@ where
     }
 }
 
+/// [Syn] is the specific message type for a packet with
+/// the SYN flag set. We assume a well-behaved parser and
+/// leave the parsing implementation to the user. Hence,
+/// this demonstration has an extremely simplistic layout of
+/// message structs and does **no** error handling.
+/// Hence, it is possible to construct a [Syn] message out of
+/// a wrong packet. This should ideally be handled by checking
+/// that correct flags are set and returning errors.
 pub struct Syn {
     pub packet: Vec<u8>,
 }
@@ -209,6 +220,14 @@ impl Message for Syn {
     }
 }
 
+/// [SynAck] is the specific message type for a packet with
+/// the SYN flag set. We assume a well-behaved parser and
+/// leave the parsing implementation to the user. Hence,
+/// this demonstration has an extremely simplistic layout of
+/// message structs and does **no** error handling.
+/// Hence, it is possible to construct a [SynAck] message out of
+/// a wrong packet. This should ideally be handled by checking
+/// that correct flags are set and returning errors.
 pub struct SynAck {
     pub packet: Vec<u8>,
 }
@@ -223,6 +242,14 @@ impl Message for SynAck {
     }
 }
 
+/// [Ack] is the specific message type for a packet with
+/// the SYN flag set. We assume a well-behaved parser and
+/// leave the parsing implementation to the user. Hence,
+/// this demonstration has an extremely simplistic layout of
+/// message structs and does **no** error handling.
+/// Hence, it is possible to construct a [Ack] message out of
+/// a wrong packet. This should ideally be handled by checking
+/// that correct flags are set and returning errors.
 pub struct Ack {
     pub packet: Vec<u8>,
 }
@@ -234,5 +261,27 @@ impl Message for Ack {
 
     fn from_net_representation(packet: Vec<u8>) -> Self {
         Ack { packet }
+    }
+}
+
+/// [FinAck] is the specific message type for a packet with
+/// the SYN flag set. We assume a well-behaved parser and
+/// leave the parsing implementation to the user. Hence,
+/// this demonstration has an extremely simplistic layout of
+/// message structs and does **no** error handling.
+/// Hence, it is possible to construct a [FinAck] message out of
+/// a wrong packet. This should ideally be handled by checking
+/// that correct flags are set and returning errors.
+pub struct FinAck {
+    pub packet: Vec<u8>,
+}
+
+impl Message for FinAck {
+    fn to_net_representation(self) -> Vec<u8> {
+        self.packet
+    }
+
+    fn from_net_representation(packet: Vec<u8>) -> Self {
+        FinAck { packet }
     }
 }
