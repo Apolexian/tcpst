@@ -6,18 +6,18 @@ Overleaf link: https://www.overleaf.com/6549774965nbxrbvyffctk
 
 ## TCP handshake demo
 
-The `mpstrust` directory contains the session-typed net and crossbeam channel implementations geared towards network development.
+The `mpstrust` directory contains the MPST implementation and example TCP server.
 The source includes an example of an implementation of a very basic TCP server that completes the opening handshake and issues connection close.
 It uses a layer 4 interface provided by `libpnet` to read incoming TCP packets.
 Netcat was used to connect to the server and tcpdump to observe packets.
 The server only reads packets on port 49155.
 
-There are four steps to showcase the example:
+To run the example server you can use the provided script:
 
-1. We need to add a iptables rule to make the kernel not send reset packets - `iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP`. Make sure to delete this rule once you don't need the example anymore.
-2. Start tcpdump - `sudo tcpdump -i lo -v 'port 49155'`
-3. Compile the example and run it - `cargo b --release` followed by `sudo ./target/release/mpstrust`
-4. Use netcat to connect to the server - `nc 127.0.0.1 -v 49155`
+```
+chmod +x run.sh
+sudo ./run.sh
+```
 
 Example output from tcpdump:
 
