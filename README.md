@@ -7,6 +7,7 @@ Overleaf link: https://www.overleaf.com/6549774965nbxrbvyffctk
 The MPST model of TCP is provided in the `tcp.ctx` file.
 The model needs the TCP payload fork of the [mpstk tool](https://github.com/Apolexian/mpstk) to execute.
 A compiled binary is provided in the `bin` directory.
+Note that you will still need to install `mclr2` and clone the `mpstk` fork to run this.
 To run the model use the `run_model.sh` script.
 
 ## TCP handshake demo
