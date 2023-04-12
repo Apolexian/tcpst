@@ -1,8 +1,13 @@
-# tcpst
-
-The project includes models that use a fork of the [mpstk tool](https://github.com/Apolexian/mpstk) for TCP and POP3.
+# TCP-ST
 
 Overleaf link: https://www.overleaf.com/6549774965nbxrbvyffctk 
+
+## Model
+
+The MPST model of TCP is provided in the `tcp.ctx` file.
+The model needs the TCP payload fork of the [mpstk tool](https://github.com/Apolexian/mpstk) to execute.
+A compiled binary is provided in the `bin` directory.
+To run the model use the `run_model.sh` script.
 
 ## TCP handshake demo
 
