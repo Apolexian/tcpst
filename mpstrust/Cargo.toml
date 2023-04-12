@@ -1,9 +1,11 @@
 [package]
-name = "mpstrust"
+name = "tcp-st"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Ivan Nikitin"]
+description = "An implementation of multiparty session types and an example TCP server that uses this implementation."
+license = "GPL-3.0-or-later"
+license-file = "LICENSE"
 
 [dependencies]
 crossbeam-channel = "0.5.6"

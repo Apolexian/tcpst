@@ -4,16 +4,29 @@
 #![warn(clippy::nursery)]
 #![warn(clippy::cargo)]
 
+/**
+ * Copyright 2023, Ivan Nikitin.
+ * This file is part of TCP-ST.
+ *
+ * TCP-ST is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+ *
+ * TCP-ST is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with TCP-ST.
+ * If not, see <https://www.gnu.org/licenses/>.
+ *
+ */
 use std::net::Ipv4Addr;
 use std::ops::Add;
 use std::thread;
 
 use crossbeam_channel::unbounded;
-use mpstrust::crossbeam::{Close, Connected, CrossBeamRoleChannel, Open, TcbCreated};
-use mpstrust::net_channel::{Ack, FinAck, NetChannel, Syn, SynAck};
-use mpstrust::{Action, End, OfferOne, Role, SelectOne, SessionTypedChannel};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::Packet;
+use tcp_st::crossbeam::{Close, Connected, CrossBeamRoleChannel, Open, TcbCreated};
+use tcp_st::net_channel::{Ack, FinAck, NetChannel, Syn, SynAck};
+use tcp_st::{Action, End, OfferOne, Role, SelectOne, SessionTypedChannel};
 
 use pnet::packet::tcp::{ipv4_checksum, MutableTcpPacket, TcpFlags, TcpPacket};
 use pnet::transport::tcp_packet_iter;

@@ -91,15 +91,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mpstrust"
-version = "0.1.0"
-dependencies = [
- "crossbeam-channel",
- "pnet",
- "raw-socket",
-]
-
-[[package]]
 name = "no-std-net"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -284,6 +275,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "tcp-st"
+version = "0.1.0"
+dependencies = [
+ "crossbeam-channel",
+ "pnet",
+ "raw-socket",
 ]
 
 [[package]]
