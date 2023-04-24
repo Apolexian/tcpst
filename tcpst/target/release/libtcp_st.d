@@ -1,1 +1,0 @@
-/home/ivan/workspace/tcpst/tcpst/target/release/libtcp_st.rlib: /home/ivan/workspace/tcpst/tcpst/src/crossbeam.rs /home/ivan/workspace/tcpst/tcpst/src/lib.rs /home/ivan/workspace/tcpst/tcpst/src/net_channel.rs
