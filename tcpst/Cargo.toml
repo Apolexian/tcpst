@@ -1,0 +1,13 @@
+[package]
+name = "tcp-st"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ivan Nikitin"]
+description = "An implementation of multiparty session types and an example TCP server that uses this implementation."
+license = "GPL-3.0-or-later"
+license-file = "LICENSE"
+
+[dependencies]
+crossbeam-channel = "0.5.6"
+pnet = "0.33.0"
+raw-socket = "0.0.2"

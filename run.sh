@@ -4,8 +4,8 @@ OUTDIR=out
 TCPDUMPFILE=out/mpstrust.pcap
 NETCATFILE=out/netcat
 SERVERFILE=out/server
-MANIFEST=mpstrust/Cargo.toml
-BINARY=mpstrust/target/release/mpstrust
+MANIFEST=tcpst/Cargo.toml
+BINARY=tcpst/target/release/tcp-st
 PORT=49155
 IP=127.0.0.1
 
