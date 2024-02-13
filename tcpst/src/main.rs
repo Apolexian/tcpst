@@ -27,6 +27,7 @@ use pnet::packet::Packet;
 use tcp_st::crossbeam::{Close, Connected, CrossBeamRoleChannel, Open, TcbCreated};
 use tcp_st::net_channel::{Ack, FinAck, NetChannel, Syn, SynAck};
 use tcp_st::{Action, End, OfferOne, Role, SelectOne, SessionTypedChannel};
+use tcp_st::MakeRole;
 
 use pnet::packet::tcp::{ipv4_checksum, MutableTcpPacket, TcpFlags, TcpPacket};
 use pnet::transport::tcp_packet_iter;
@@ -35,14 +36,9 @@ use pnet::transport::TransportChannelType::Layer4;
 use pnet::transport::TransportProtocol::Ipv4;
 use raw_socket::{Domain, Protocol, Type};
 
-pub struct RoleServerSystem;
-impl Role for RoleServerSystem {}
-
-pub struct RoleServerUser;
-impl Role for RoleServerUser {}
-
-pub struct RoleServerClient;
-impl Role for RoleServerClient {}
+MakeRole!(pub RoleServerSystem);
+MakeRole!(pub RoleServerUser);
+MakeRole!(pub RoleServerClient);
 
 fn main() {
     let remote_addr = Ipv4Addr::new(127, 0, 0, 1);

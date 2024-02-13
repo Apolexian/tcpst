@@ -23,10 +23,14 @@ pub trait Action: Send {
 
 pub trait Role {}
 
-pub trait Message: Send {
-    fn to_net_representation(self) -> Vec<u8>;
-    fn from_net_representation(packet: Vec<u8>) -> Self;
+#[macro_export] macro_rules! MakeRole {
+    (pub $name:ident) => {
+        pub struct $name;
+        impl Role for $name {}
+    };
 }
+
+pub trait Message: Send {}
 
 // Session action types
 
@@ -214,3 +218,4 @@ pub trait SessionTypedChannel<R1, R2> {
 
 pub mod crossbeam;
 pub mod net_channel;
+pub mod tcp;
