@@ -1,7 +1,5 @@
 # TCP-ST
 
-Overleaf link: https://www.overleaf.com/6549774965nbxrbvyffctk 
-
 ## Model
 
 The multiparty model of TCP is provided in the `tcp.ctx` file.
